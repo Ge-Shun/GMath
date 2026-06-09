@@ -116,8 +116,9 @@
 
   <div class="row">
     <button id="insertBtn" disabled>插入到 Word</button>
+    <button id="newBtn" class="secondary" hidden>插入为新公式</button>
     <button id="importBtn" class="secondary">导入选中公式</button>
-    <button id="unwrapBtn" class="secondary">转为 Word 原生公式</button>
+    <button id="unwrapBtn" class="secondary" hidden>转为 Word 原生公式</button>
     <button id="clearBtn" class="secondary">清空</button>
     <label class="check">
       <input type="checkbox" id="displayMode" checked />
@@ -125,9 +126,8 @@
     </label>
   </div>
   <p class="hint" style="margin-top:0">
-    此面板用于<strong>新建</strong>公式。插入的公式是带框的「GMath 对象」；在文档里<strong>点选</strong>它
-    会自动<strong>弹出编辑窗口</strong>（最接近 MathType 双击编辑）。「导入选中公式」把任意 Word 公式载入本面板；
-    「转为 Word 原生公式」对选中的 GMath 公式去框、交给 Word 自带公式工具。
+    插入的公式是「GMath 可回编辑对象」（带框）。在文档里<strong>点选</strong>它即可载回此面板编辑
+    （Office 无双击事件，故为点选即载入）。也可选中任意 Word 公式后点「导入选中公式」。
   </p>
 
   <div class="latex-box">
