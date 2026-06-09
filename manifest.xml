@@ -7,7 +7,7 @@
   xsi:type="TaskPaneApp">
 
   <Id>8DE426EB-A1F7-4A21-A119-07D5983413B5</Id>
-  <Version>1.0.2</Version>
+  <Version>1.0.3</Version>
   <ProviderName>GMath</ProviderName>
   <DefaultLocale>zh-CN</DefaultLocale>
   <DisplayName DefaultValue="GMath 公式" />
@@ -29,8 +29,17 @@
   <Permissions>ReadWriteDocument</Permissions>
 
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <!-- 共享运行时：让加载项 JS 常驻，面板关闭时也能监听选区、弹出编辑窗口 -->
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.1">
+        <bt:Set Name="SharedRuntime" MinVersion="1.1" />
+      </bt:Sets>
+    </Requirements>
     <Hosts>
       <Host xsi:type="Document">
+        <Runtimes>
+          <Runtime resid="Taskpane.Url" lifetime="long" />
+        </Runtimes>
         <DesktopFormFactor>
           <GetStarted>
             <Title resid="GetStarted.Title" />
