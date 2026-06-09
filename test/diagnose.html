@@ -10,7 +10,10 @@
   <pre id="out">loading…</pre>
   <script type="module">
     import { mml2omml } from "../src/mathml2omml.js";
+    import { omml2latex } from "../src/omml2latex.js";
     window.__ready = false;
+
+    // 正向：LaTeX → (MathLive) MathML → (mml2omml) OMML
     window.__diagnose = function (latex) {
       const mf = document.getElementById("mf");
       mf.setValue(latex);
@@ -19,6 +22,24 @@
       try { omml = mml2omml(mathml); } catch (e) { err = String(e); }
       return { latex, mathml, omml, err };
     };
+
+    // 全往返：LaTeX → MathML → OMML → (omml2latex) LaTeX'
+    // 模拟 taskpane.js 里「从文档读回公式并载入面板」的反向链路，
+    // 并用 backLatex 再喂回 MathLive 取其 MathML，做等价性粗比对。
+    window.__roundtrip = function (latex) {
+      const mf = document.getElementById("mf");
+      mf.setValue(latex);
+      const mathml = mf.getValue("math-ml");
+      const omml = mml2omml(mathml);
+      let backLatex = null, reMathml = null, err = null;
+      try {
+        backLatex = omml2latex(omml);
+        mf.setValue(backLatex);
+        reMathml = mf.getValue("math-ml"); // 反向 LaTeX 能被 MathLive 再次解析即说明可载入面板
+      } catch (e) { err = String(e); }
+      return { latex, backLatex, mathmlEqual: reMathml === mathml, err };
+    };
+
     customElements.whenDefined("math-field").then(() => {
       window.__ready = true;
       document.getElementById("out").textContent = "ready";
