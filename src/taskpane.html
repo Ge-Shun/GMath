@@ -56,6 +56,13 @@
     button:disabled { opacity: .5; cursor: not-allowed; }
     label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 
+    .mode {
+      margin: 10px 0 2px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .mode.linked { color: #0e700e; }
     .latex-box {
       margin-top: 12px;
     }
@@ -90,7 +97,7 @@
 </head>
 <body>
   <h1>GMath 公式</h1>
-  <p class="hint">可视化或用 LaTeX 编辑公式，点击「插入到 Word」生成原生可编辑公式。</p>
+  <p class="hint">可视化或用 LaTeX 编辑公式 →「插入到 Word」生成原生公式。点选文档里已有的公式可载入修改，改动自动同步。</p>
 
   <div class="palette" id="palette">
     <button data-insert="\frac{#0}{#0}">a/b</button>
@@ -104,6 +111,8 @@
   </div>
 
   <math-field id="mathfield"></math-field>
+
+  <div class="mode" id="modeLine">新建公式</div>
 
   <div class="row">
     <button id="insertBtn" disabled>插入到 Word</button>
