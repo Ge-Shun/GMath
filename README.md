@@ -1,5 +1,7 @@
 # GMath
 
+![GMath cover](assets/readme/gmath.png)
+
 GMath is a Microsoft Word add-in for writing and inserting editable math equations.
 
 It lets you compose an equation visually or with LaTeX, then insert it into Word as a native Word equation. The inserted equation is not an image, so it stays editable inside the document.

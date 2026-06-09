@@ -1,5 +1,7 @@
 # GMath
 
+![GMath 封面图](assets/readme/gmath.png)
+
 GMath 是一个 Microsoft Word 加载项，用来编写并插入可编辑的数学公式。
 
 你可以在任务面板中可视化编辑公式，也可以直接输入 LaTeX。插入到 Word 后，公式是 Word 原生公式，不是图片，因此后续仍然可以在文档中继续编辑。
