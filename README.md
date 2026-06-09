@@ -2,8 +2,10 @@
 
 在 Word 中可视化编辑并插入**原生可编辑公式**（OMML），用于替代 MathType。
 
-链路：**MathLive 编辑 → MathML → [mml2omml](https://github.com/fiduswriter/mathml2omml) 转 OMML → Flat OPC 包 → Office.js `insertOoxml` 插入**。
+链路：**MathLive 编辑 → MathML → 自研转换器转 OMML → Flat OPC 包 → Office.js `insertOoxml` 插入**。
 插入的是 Word 原生公式，可双击继续编辑，不是图片。
+
+> MathML→OMML 由自研模块 [`src/mathml2omml.js`](src/mathml2omml.js) 完成，**不依赖第三方转换库**，仅用浏览器原生 `DOMParser` + 递归翻译。
 
 ## 目录结构
 
@@ -11,11 +13,12 @@
 manifest.xml        加载项清单（指向 https://localhost:3000）
 src/
   taskpane.html     任务面板 UI（内嵌 MathLive 编辑器）
-  taskpane.js       核心逻辑：MathML→OMML→插入
+  taskpane.js       核心逻辑：取 MathML → 调转换器 → 包 OOXML → 插入
+  mathml2omml.js    自研 MathML→OMML 转换器（无第三方依赖）
 package.json        本地开发脚本
 ```
 
-> 依赖（MathLive、mml2omml）通过 CDN 加载，无需打包构建。首次使用需要联网。
+> 仅 MathLive 编辑器通过 CDN 加载；MathML→OMML 为自研代码。首次使用需联网取 MathLive。
 
 ## 运行（macOS）
 

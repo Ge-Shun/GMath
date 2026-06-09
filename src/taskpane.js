@@ -1,7 +1,7 @@
 // GMath Word 加载项 —— 核心逻辑
 // 链路：MathLive 编辑 → 输出 MathML → mml2omml 转 OMML → 包成 Flat OPC → insertOoxml 插入 Word
 
-import { mml2omml } from "https://esm.sh/mathml2omml@0.5.0";
+import { mml2omml } from "./mathml2omml.js"; // 自研转换器，无第三方依赖
 
 const $ = (id) => document.getElementById(id);
 
