@@ -5,11 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GMath 公式</title>
 
+  <script>
+    window.__gmathBoot = { start: performance.now(), marks: [] };
+    window.__gmathMark = function (name) {
+      window.__gmathBoot.marks.push({
+        name: name,
+        ms: Math.round(performance.now() - window.__gmathBoot.start)
+      });
+    };
+  </script>
+
+  <link rel="stylesheet" href="./vendor/mathlive/mathlive-fonts.css" />
+
   <!-- Office.js（必须以经典脚本方式加载） -->
-  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script
+    src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"
+    onload="window.__gmathMark && window.__gmathMark('office.js loaded')"
+    onerror="window.__gmathMark && window.__gmathMark('office.js failed')"
+  ></script>
 
   <!-- MathLive：可视化公式编辑器，自动注册 <math-field> 元素 -->
-  <script defer src="https://cdn.jsdelivr.net/npm/mathlive"></script>
+  <script
+    defer
+    src="./vendor/mathlive/mathlive.min.js"
+    onload="window.__gmathMark && window.__gmathMark('mathlive loaded')"
+    onerror="window.__gmathMark && window.__gmathMark('mathlive failed')"
+  ></script>
 
   <style>
     :root {
@@ -135,6 +156,11 @@
     <textarea id="debug" readonly style="min-height:120px;margin-top:8px;"></textarea>
   </details>
 
-  <script type="module" src="./taskpane.js"></script>
+  <script
+    type="module"
+    src="./taskpane.js"
+    onload="window.__gmathMark && window.__gmathMark('taskpane module loaded')"
+    onerror="window.__gmathMark && window.__gmathMark('taskpane module failed')"
+  ></script>
 </body>
 </html>

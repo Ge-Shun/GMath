@@ -20,7 +20,6 @@ English documentation: [README.md](README.md).
 
 - Microsoft Word
 - Node.js 和 npm
-- 首次加载编辑器时需要联网，因为当前版本通过 CDN 加载 MathLive
 - 本地旁加载时需要安装受信任的 localhost 开发证书
 
 ## 本地运行

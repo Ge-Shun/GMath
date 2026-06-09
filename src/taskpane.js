@@ -10,9 +10,15 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-09-i";
+const BUILD = "2026-06-10-a";
 
 const $ = (id) => document.getElementById(id);
+const boot = window.__gmathBoot || { start: performance.now(), marks: [] };
+const bootMark = (name) => {
+  boot.marks.push({ name, ms: Math.round(performance.now() - boot.start) });
+};
+const bootReport = () =>
+  ["GMath 启动耗时:", ...boot.marks.map((m) => `- ${m.name}: ${m.ms} ms`)].join("\n");
 
 let mathfield, latexEl, statusEl, debugEl, insertBtn, displayModeEl, modeLine;
 
@@ -24,9 +30,24 @@ let loadingDoc = false; // 正在把文档公式灌入面板（屏蔽 mathfield�
 let selTimer = null;
 let syncTimer = null;
 
+bootMark("taskpane module evaluating");
+
 function setStatus(msg, kind = "") {
   statusEl.textContent = msg;
   statusEl.className = "status" + (kind ? " " + kind : "");
+}
+
+function setStartupStatus(msg, kind = "") {
+  const el = $("status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
+}
+
+function writeStartupDebug(prefix = "") {
+  const el = $("debug");
+  if (!el) return;
+  el.value = (prefix ? prefix + "\n\n" : "") + bootReport();
 }
 
 function setMode(isLinked) {
@@ -177,6 +198,7 @@ async function readFromSelection() {
 }
 
 function wireUp(inWord) {
+  bootMark("wireUp start");
   mathfield = $("mathfield");
   latexEl = $("latex");
   statusEl = $("status");
@@ -222,13 +244,49 @@ function wireUp(inWord) {
     );
   }
   setMode(false);
+  bootMark("wireUp complete");
+  writeStartupDebug();
 }
 
-Office.onReady((info) => {
-  const inWord = info.host === Office.HostType.Word;
-  customElements.whenDefined("math-field").then(() => {
-    wireUp(inWord);
-    if (inWord) setStatus("就绪（版本 " + BUILD + "）。新建公式，或点选文档里的公式来编辑。", "ok");
-    else setStatus("（非 Word 环境）编辑器可用，但只有在 Word 中才能插入/同步。");
+function waitForMathField() {
+  const timeoutMs = 8000;
+  const warning = setTimeout(() => {
+    bootMark("math-field wait exceeded " + timeoutMs + " ms");
+    setStartupStatus(
+      "公式编辑器加载较慢，通常是 MathLive CDN 下载或注册耗时。请稍候；若长期不变，请检查网络或刷新任务面板。",
+      "err"
+    );
+    writeStartupDebug("启动阶段仍在等待 <math-field> 注册。");
+  }, timeoutMs);
+
+  return customElements.whenDefined("math-field").finally(() => {
+    clearTimeout(warning);
+    bootMark("math-field defined");
   });
-});
+}
+
+if (!window.Office || !Office.onReady) {
+  bootMark("office.js unavailable");
+  setStartupStatus("Office.js 未加载，无法初始化 Word 加载项。请检查网络后重新打开任务面板。", "err");
+  writeStartupDebug();
+} else {
+  const officeReadyWarning = setTimeout(() => {
+    bootMark("office ready wait exceeded 8000 ms");
+    setStartupStatus("正在等待 Office 初始化，若长期不变通常是 Office.js 或 Word WebView 启动较慢。", "err");
+    writeStartupDebug();
+  }, 8000);
+
+  Office.onReady((info) => {
+    clearTimeout(officeReadyWarning);
+    bootMark("office ready");
+    setStartupStatus("正在加载公式编辑器…");
+    return waitForMathField().then(() => start(info));
+  });
+}
+
+function start(info) {
+  const inWord = info.host === Office.HostType.Word;
+  wireUp(inWord);
+  if (inWord) setStatus("就绪（版本 " + BUILD + "）。新建公式，或点选文档里的公式来编辑。", "ok");
+  else setStatus("（非 Word 环境）编辑器可用，但只有在 Word 中才能插入/同步。");
+}

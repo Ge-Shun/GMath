@@ -20,7 +20,6 @@ It lets you compose an equation visually or with LaTeX, then insert it into Word
 
 - Microsoft Word
 - Node.js and npm
-- Internet access the first time the editor loads, because the current build loads MathLive from a CDN
 - A trusted localhost certificate for local side-loading
 
 ## Run Locally
