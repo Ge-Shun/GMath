@@ -245,5 +245,11 @@ export function mml2omml(mathmlString) {
     if (found) root = found;
   }
 
-  return `<m:oMath xmlns:m="${M}">${seq(root)}</m:oMath>`;
+  // 关键：必须 convert(root) 而不是 seq(root)。
+  // MathLive 的 getValue('math-ml') 经常输出“裸”的单个元素做根（如 x^1 → <msup>…</msup>，
+  // 不带 <math> 外壳）。seq(root) 会把 root 自身的标签丢掉、只转换它的子节点，
+  // 导致 <msup>/<mfrac> 等结构降级成相邻的普通文字 run（x¹ 变 "x1"，a/b 变 "ab"）。
+  // convert(root) 会先翻译 root 这一层；当 root 恰好是 <math>/<mrow> 这类透明容器时，
+  // convert 内部本就会退化成 seq，行为与原来一致。
+  return `<m:oMath xmlns:m="${M}">${convert(root)}</m:oMath>`;
 }

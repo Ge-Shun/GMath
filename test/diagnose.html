@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>GMath 诊断</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathlive"></script>
+</head>
+<body>
+  <math-field id="mf" style="display:block;width:400px"></math-field>
+  <pre id="out">loading…</pre>
+  <script type="module">
+    import { mml2omml } from "../src/mathml2omml.js";
+    window.__ready = false;
+    window.__diagnose = function (latex) {
+      const mf = document.getElementById("mf");
+      mf.setValue(latex);
+      const mathml = mf.getValue("math-ml");
+      let omml = "", err = null;
+      try { omml = mml2omml(mathml); } catch (e) { err = String(e); }
+      return { latex, mathml, omml, err };
+    };
+    customElements.whenDefined("math-field").then(() => {
+      window.__ready = true;
+      document.getElementById("out").textContent = "ready";
+    });
+  </script>
+</body>
+</html>
