@@ -7,12 +7,10 @@
 //   2) 输出的 OMML 是合法（可被重新解析）的 XML；
 //   3) 输出包含该类公式应有的关键 OMML 结构。
 
-import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
-globalThis.DOMParser = DOMParser; // mml2omml.js / omml2mml.js 依赖全局 DOMParser
-globalThis.XMLSerializer = XMLSerializer; // omml2mml.js 的 extractOMath 依赖
+import { DOMParser } from "@xmldom/xmldom";
+globalThis.DOMParser = DOMParser; // mml2omml.js 依赖全局 DOMParser
 
 const { mml2omml } = await import("../src/mathml2omml.js");
-const { omml2latex } = await import("../src/omml2latex.js");
 
 // MathLive 隐式乘法用的不可见字符
 const IT = "⁢"; // INVISIBLE TIMES
@@ -162,25 +160,6 @@ function decodeRefs(s) {
     .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
 }
 
-// 反向（OMML→LaTeX）往返时，每类公式回来的 LaTeX 应包含的关键命令/符号。
-// 只为结构型用例设断言；纯文本类（希腊字母/特殊字符等）只验“能往返、非空”。
-const latexExpect = {
-  "分数 a/b": ["\\frac"],
-  嵌套分数: ["\\frac{a}", "\\frac{b}"],
-  平方根: ["\\sqrt"],
-  "n 次根": ["\\sqrt[3]"],
-  "上标 x^2": ["^"],
-  "下标 x_n": ["_"],
-  "上下标 x_n^2": ["_", "^"],
-  "求和（上下限，n-ary）": ["\\sum", "_", "^"],
-  "积分（上下限，n-ary）": ["\\int"],
-  "极限 lim": ["\\underset"],
-  "矩阵 pmatrix": ["\\begin{matrix}", "&", "\\\\", "\\end{matrix}"],
-  "质能方程 E=mc^2": ["^"],
-  一元二次求根公式: ["\\frac", "\\sqrt", "^", "\\pm"],
-  "向量 \\vec{v}（重音/上方箭头）": ["\\overset"],
-};
-
 let pass = 0;
 const fails = [];
 const pad = (s, n) => (s + " ".repeat(n)).slice(0, n);
@@ -205,20 +184,6 @@ for (const c of cases) {
     }
     for (const token of c.forbid || []) {
       if (decoded.includes(token)) problems.push("残留禁止字符: " + JSON.stringify(token));
-    }
-
-    // 反向往返：OMML → omml2latex → LaTeX（即「从文档读回公式」的链路）
-    let backLatex = null;
-    try {
-      backLatex = omml2latex(decoded); // 用解码后的 OMML，符号为字面量
-    } catch (e) {
-      problems.push("反向转换抛异常: " + e.message);
-    }
-    if (backLatex != null) {
-      if (!backLatex.trim()) problems.push("反向 LaTeX 为空");
-      for (const token of latexExpect[c.name] || []) {
-        if (!backLatex.includes(token)) problems.push("往返丢失: " + JSON.stringify(token));
-      }
     }
   }
   const ok = problems.length === 0;

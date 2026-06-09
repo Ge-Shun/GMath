@@ -56,13 +56,6 @@
     button:disabled { opacity: .5; cursor: not-allowed; }
     label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 
-    .mode {
-      margin: 10px 0 2px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--accent);
-    }
-    .mode.editing { color: #8a6d00; }
     .latex-box {
       margin-top: 12px;
     }
@@ -112,23 +105,14 @@
 
   <math-field id="mathfield"></math-field>
 
-  <div class="mode" id="modeLine">新建公式</div>
-
   <div class="row">
     <button id="insertBtn" disabled>插入到 Word</button>
-    <button id="newBtn" class="secondary" hidden>插入为新公式</button>
-    <button id="importBtn" class="secondary">导入选中公式</button>
-    <button id="unwrapBtn" class="secondary" hidden>转为 Word 原生公式</button>
     <button id="clearBtn" class="secondary">清空</button>
     <label class="check">
       <input type="checkbox" id="displayMode" checked />
       独立成行（显示公式）
     </label>
   </div>
-  <p class="hint" style="margin-top:0">
-    插入的公式是「GMath 可回编辑对象」（带框）。在文档里<strong>点选</strong>它即可载回此面板编辑
-    （Office 无双击事件，故为点选即载入）。也可选中任意 Word 公式后点「导入选中公式」。
-  </p>
 
   <div class="latex-box">
     <label for="latex">LaTeX（双向同步，可直接编辑）</label>
