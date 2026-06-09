@@ -3,7 +3,7 @@
 
 import { mml2omml } from "./mathml2omml.js"; // 自研转换器，无第三方依赖
 
-const BUILD = "2026-06-09-c"; // 版本标记：用于确认面板加载的是不是最新代码
+const BUILD = "2026-06-09-e"; // 版本标记：用于确认面板加载的是不是最新代码
 
 const $ = (id) => document.getElementById(id);
 

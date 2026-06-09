@@ -17,14 +17,37 @@ const M = "http://schemas.openxmlformats.org/officeDocument/2006/math";
 const NARY = new Set(["∑", "∏", "∐", "∫", "∬", "∭", "∮", "∯", "∰", "⋃", "⋂", "⋁", "⋀", "⨁", "⨂", "⨀"]);
 
 const localName = (n) => n.localName || n.tagName.replace(/^.*:/, "");
+// MathLive may emit invisible MathML operators such as U+2062 INVISIBLE TIMES
+// for implicit multiplication (for example "4ac"). Word can render those
+// controls as tofu boxes, so drop them before producing OMML text runs.
+const INVISIBLE_MATH_CHARS = /[\u200b-\u200d\u2061-\u2064\ufeff\ufe00-\ufe0f]/g;
+
+const normalizeTokenText = (s) => String(s).replace(INVISIBLE_MATH_CHARS, "").replace(/\u00a0/g, " ");
+
 const esc = (s) =>
-  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  normalizeTokenText(s).replace(/[&<>"\u007f-\u{10ffff}]/gu, (ch) => {
+    switch (ch) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return `&#x${ch.codePointAt(0).toString(16).toUpperCase()};`;
+    }
+  });
 
 // 仅取元素子节点（忽略空白文本节点）
 const kidsOf = (node) => Array.from(node.childNodes).filter((n) => n.nodeType === 1);
 
 // 一个文本 run
-const run = (text) => `<m:r><m:t xml:space="preserve">${esc(text)}</m:t></m:r>`;
+const run = (text) => {
+  const value = esc(text);
+  return value ? `<m:r><m:t xml:space="preserve">${value}</m:t></m:r>` : "";
+};
 
 // 把若干元素子节点依次转换并拼接（用于 m:e / m:num 这类“一组内容”的槽位）
 function seq(node) {
@@ -47,9 +70,9 @@ function scripts(kids, type) {
     return naryXml(chr, "subSup", sub, sup);
   }
   const b = slot(base);
-  if (type === "sup") return `<m:sSup><m:e>${b}</m:e><m:sup>${slot(kids[1])}</m:sup></m:sSup>`;
-  if (type === "sub") return `<m:sSub><m:e>${b}</m:e><m:sub>${slot(kids[1])}</m:sub></m:sSub>`;
-  return `<m:sSubSup><m:e>${b}</m:e><m:sub>${slot(kids[1])}</m:sub><m:sup>${slot(kids[2])}</m:sup></m:sSubSup>`;
+  if (type === "sup") return `<m:sSup><m:sSupPr/><m:e>${b}</m:e><m:sup>${slot(kids[1])}</m:sup></m:sSup>`;
+  if (type === "sub") return `<m:sSub><m:sSubPr/><m:e>${b}</m:e><m:sub>${slot(kids[1])}</m:sub></m:sSub>`;
+  return `<m:sSubSup><m:sSubSupPr/><m:e>${b}</m:e><m:sub>${slot(kids[1])}</m:sub><m:sup>${slot(kids[2])}</m:sup></m:sSubSup>`;
 }
 
 // 上/下方标注：munder / mover / munderover（lim、∑ 的上下限等）
@@ -99,6 +122,44 @@ function matrix(node) {
   return `<m:m>${body}</m:m>`;
 }
 
+// Content MathML: <apply><power/><ci>x</ci><cn>5</cn></apply>
+// MathLive normally emits Presentation MathML for "math-ml", but supporting
+// this shape prevents scripts from degrading to plain adjacent runs ("x5").
+function applyContent(kids) {
+  const op = kids[0] ? localName(kids[0]) : "";
+  const args = kids.slice(1);
+
+  switch (op) {
+    case "power":
+      return scripts(args, "sup");
+
+    case "root": {
+      const degree = args.find((arg) => localName(arg) === "degree");
+      const radicand = args.find((arg) => localName(arg) !== "degree");
+      if (degree) return `<m:rad><m:deg>${seq(degree)}</m:deg><m:e>${slot(radicand)}</m:e></m:rad>`;
+      return `<m:rad><m:radPr><m:degHide m:val="on"/></m:radPr><m:deg/><m:e>${slot(radicand)}</m:e></m:rad>`;
+    }
+
+    case "divide":
+      return `<m:f><m:num>${slot(args[0])}</m:num><m:den>${slot(args[1])}</m:den></m:f>`;
+
+    case "plus":
+      return args.map(slot).join(run("+"));
+
+    case "times":
+      return args.map(slot).join("");
+
+    case "minus":
+      return args.length === 1 ? run("-") + slot(args[0]) : args.map(slot).join(run("-"));
+
+    case "eq":
+      return args.map(slot).join(run("="));
+
+    default:
+      return args.map(slot).join("");
+  }
+}
+
 // 核心递归：把一个节点翻译成 OMML 片段
 function convert(node) {
   if (node.nodeType !== 1) return ""; // 文本节点由 token 元素的 textContent 处理
@@ -118,11 +179,19 @@ function convert(node) {
     case "mo":
     case "mtext":
     case "ms":
+    case "ci":
+    case "cn":
       return run(node.textContent);
 
     case "mspace":
     case "none":
       return "";
+
+    case "apply":
+      return applyContent(kids);
+
+    case "degree":
+      return seq(node);
 
     case "mfrac":
       return `<m:f><m:num>${slot(kids[0])}</m:num><m:den>${slot(kids[1])}</m:den></m:f>`;
