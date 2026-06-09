@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">GMath icon option C</title>
+  <desc id="desc">Geometric math grid icon with a curve and node points.</desc>
+  <rect width="1024" height="1024" rx="184" fill="#083b45"/>
+  <path d="M248 250v524M248 774h528" fill="none" stroke="#9adfd6" stroke-width="42" stroke-linecap="round"/>
+  <path d="M248 642c138 0 150-258 288-258s150 258 288 258" fill="none" stroke="#ffffff" stroke-width="72" stroke-linecap="round"/>
+  <path d="M248 642c138 0 150-258 288-258s150 258 288 258" fill="none" stroke="#22c1a7" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="248" cy="642" r="54" fill="#ffffff"/>
+  <circle cx="536" cy="384" r="54" fill="#ffffff"/>
+  <circle cx="824" cy="642" r="54" fill="#ffffff"/>
+  <circle cx="248" cy="642" r="24" fill="#22c1a7"/>
+  <circle cx="536" cy="384" r="24" fill="#22c1a7"/>
+  <circle cx="824" cy="642" r="24" fill="#22c1a7"/>
+</svg>

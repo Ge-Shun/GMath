@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">GMath icon option B</title>
+  <desc id="desc">Clean equation-card icon with sigma, x, and a native-document cue.</desc>
+  <rect width="1024" height="1024" rx="184" fill="#f7fbff"/>
+  <rect x="170" y="178" width="684" height="668" rx="88" fill="#ffffff" stroke="#1668c7" stroke-width="54"/>
+  <path d="M310 336h330M310 512h404M310 688h274" fill="none" stroke="#d8e8fb" stroke-width="58" stroke-linecap="round"/>
+  <path fill="#1668c7" d="M309 314h334v78H433l154 122-154 122h230v78H309v-78l170-122-170-122v-78z"/>
+  <circle cx="706" cy="332" r="42" fill="#21a67a"/>
+  <path d="M662 670l96-96m-96 0l96 96" fill="none" stroke="#21a67a" stroke-width="54" stroke-linecap="round"/>
+</svg>

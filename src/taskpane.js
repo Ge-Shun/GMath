@@ -3,6 +3,8 @@
 
 import { mml2omml } from "./mathml2omml.js"; // 自研转换器，无第三方依赖
 
+const BUILD = "2026-06-09-c"; // 版本标记：用于确认面板加载的是不是最新代码
+
 const $ = (id) => document.getElementById(id);
 
 let mathfield, latexEl, statusEl, debugEl, insertBtn, displayModeEl;
@@ -68,10 +70,11 @@ async function insertEquation() {
     return;
   }
 
-  debugEl.value = "MathML:\n" + mathml + "\n\nOMML:\n" + omml;
-
   const display = displayModeEl.checked;
   const flatOpc = buildFlatOpc(omml, display);
+
+  debugEl.value =
+    "构建版本: " + BUILD + "\n\nMathML:\n" + mathml + "\n\nOMML:\n" + omml + "\n\n完整 OOXML:\n" + flatOpc;
 
   try {
     await Word.run(async (context) => {
@@ -81,7 +84,14 @@ async function insertEquation() {
     });
     setStatus("已插入到 Word（双击可继续编辑）。", "ok");
   } catch (e) {
-    setStatus("插入失败：" + (e.message || e), "err");
+    // Office 的错误对象带 code / debugInfo，比 message 详细得多
+    const detail = {
+      code: e.code,
+      message: e.message,
+      debugInfo: e.debugInfo,
+    };
+    setStatus("插入失败：" + (e.code || "") + " " + (e.message || e), "err");
+    debugEl.value += "\n\n=== 错误详情 ===\n" + JSON.stringify(detail, null, 2);
   }
 }
 
@@ -133,6 +143,6 @@ Office.onReady((info) => {
   }
   customElements.whenDefined("math-field").then(() => {
     wireUp();
-    setStatus("就绪。编辑公式后点击「插入到 Word」。", "ok");
+    setStatus("就绪（版本 " + BUILD + "）。编辑公式后点击「插入到 Word」。", "ok");
   });
 });
