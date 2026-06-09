@@ -10,7 +10,285 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-10-a";
+const BUILD = "2026-06-10-c";
+
+// XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
+const escXml = (s) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// ===== 符号速选数据（分类，参考 MathType / AxMath） =====
+// 每项 { l: 按钮显示, i: 插入的 LaTeX, t?: 悬停说明 }；#0 表示插入后的光标占位
+const SYMBOL_CATEGORIES = [
+  {
+    name: "常用",
+    items: [
+      { l: "a/b", i: "\\frac{#0}{#0}", t: "分数" },
+      { l: "√", i: "\\sqrt{#0}", t: "平方根" },
+      { l: "ⁿ√", i: "\\sqrt[#0]{#0}", t: "n 次根" },
+      { l: "xⁿ", i: "x^{#0}", t: "上标" },
+      { l: "xₙ", i: "x_{#0}", t: "下标" },
+      { l: "xⁿₘ", i: "x_{#0}^{#0}", t: "上下标" },
+      { l: "( )", i: "\\left(#0\\right)", t: "圆括号" },
+      { l: "[ ]", i: "\\left[#0\\right]", t: "方括号" },
+      { l: "{ }", i: "\\left\\{#0\\right\\}", t: "花括号" },
+      { l: "|x|", i: "\\left|#0\\right|", t: "绝对值" },
+      { l: "‖x‖", i: "\\left\\|#0\\right\\|", t: "范数" },
+      { l: "⌊x⌋", i: "\\left\\lfloor #0\\right\\rfloor", t: "向下取整" },
+      { l: "⌈x⌉", i: "\\left\\lceil #0\\right\\rceil", t: "向上取整" },
+      { l: "(ⁿₖ)", i: "\\binom{#0}{#0}", t: "二项式系数" },
+      { l: "[▦]", i: "\\begin{pmatrix}#0\\end{pmatrix}", t: "矩阵" },
+      { l: "{·", i: "\\begin{cases}#0\\end{cases}", t: "分段函数" },
+      { l: "x⃗", i: "\\vec{#0}", t: "向量" },
+      { l: "AB⃗", i: "\\overrightarrow{#0}", t: "有向线段 / 长向量" },
+      { l: "x̄", i: "\\overline{#0}", t: "上划线" },
+      { l: "x̲", i: "\\underline{#0}", t: "下划线" },
+      { l: "x̂", i: "\\hat{#0}", t: "帽（estimate）" },
+      { l: "x̃", i: "\\tilde{#0}", t: "波浪号" },
+      { l: "ẋ", i: "\\dot{#0}", t: "一阶导（点）" },
+      { l: "ẍ", i: "\\ddot{#0}", t: "二阶导（双点）" },
+      { l: "⏞", i: "\\overbrace{#0}", t: "上花括（标注）" },
+      { l: "⏟", i: "\\underbrace{#0}", t: "下花括（标注）" },
+    ],
+  },
+  {
+    name: "运算符",
+    items: [
+      { l: "+", i: "+" },
+      { l: "−", i: "-" },
+      { l: "±", i: "\\pm" },
+      { l: "∓", i: "\\mp" },
+      { l: "×", i: "\\times" },
+      { l: "÷", i: "\\div" },
+      { l: "⋅", i: "\\cdot" },
+      { l: "∗", i: "\\ast" },
+      { l: "⋆", i: "\\star" },
+      { l: "∘", i: "\\circ" },
+      { l: "∙", i: "\\bullet" },
+      { l: "⊕", i: "\\oplus" },
+      { l: "⊖", i: "\\ominus" },
+      { l: "⊗", i: "\\otimes" },
+      { l: "⊙", i: "\\odot" },
+      { l: "⊘", i: "\\oslash" },
+      { l: "⊞", i: "\\boxplus" },
+      { l: "⊠", i: "\\boxtimes" },
+      { l: "⊎", i: "\\uplus" },
+      { l: "⊓", i: "\\sqcap" },
+      { l: "⊔", i: "\\sqcup" },
+      { l: "⋄", i: "\\diamond" },
+      { l: "△", i: "\\bigtriangleup" },
+      { l: "▽", i: "\\bigtriangledown" },
+      { l: "◁", i: "\\triangleleft" },
+      { l: "▷", i: "\\triangleright" },
+      { l: "†", i: "\\dagger" },
+      { l: "‡", i: "\\ddagger" },
+      { l: "∖", i: "\\setminus" },
+      { l: "≀", i: "\\wr" },
+      { l: "⨿", i: "\\amalg" },
+    ],
+  },
+  {
+    name: "关系符",
+    items: [
+      { l: "=", i: "=" },
+      { l: "≠", i: "\\neq" },
+      { l: "≈", i: "\\approx" },
+      { l: "≡", i: "\\equiv" },
+      { l: "≅", i: "\\cong" },
+      { l: "∼", i: "\\sim" },
+      { l: "≃", i: "\\simeq" },
+      { l: "<", i: "<" },
+      { l: ">", i: ">" },
+      { l: "≤", i: "\\leq" },
+      { l: "≥", i: "\\geq" },
+      { l: "≪", i: "\\ll" },
+      { l: "≫", i: "\\gg" },
+      { l: "≺", i: "\\prec" },
+      { l: "≻", i: "\\succ" },
+      { l: "≼", i: "\\preceq" },
+      { l: "≽", i: "\\succeq" },
+      { l: "≰", i: "\\nleq" },
+      { l: "≱", i: "\\ngeq" },
+      { l: "∝", i: "\\propto" },
+      { l: "⊥", i: "\\perp" },
+      { l: "∥", i: "\\parallel" },
+      { l: "≐", i: "\\doteq" },
+      { l: "≍", i: "\\asymp" },
+      { l: "≜", i: "\\triangleq", t: "定义为" },
+      { l: "⊨", i: "\\models" },
+      { l: "⊢", i: "\\vdash" },
+      { l: "⊣", i: "\\dashv" },
+      { l: "⋈", i: "\\bowtie" },
+    ],
+  },
+  {
+    name: "箭头",
+    items: [
+      { l: "→", i: "\\rightarrow" },
+      { l: "←", i: "\\leftarrow" },
+      { l: "↔", i: "\\leftrightarrow" },
+      { l: "↑", i: "\\uparrow" },
+      { l: "↓", i: "\\downarrow" },
+      { l: "↕", i: "\\updownarrow" },
+      { l: "⇑", i: "\\Uparrow" },
+      { l: "⇓", i: "\\Downarrow" },
+      { l: "⇕", i: "\\Updownarrow" },
+      { l: "⇒", i: "\\Rightarrow" },
+      { l: "⇐", i: "\\Leftarrow" },
+      { l: "⇔", i: "\\Leftrightarrow" },
+      { l: "↦", i: "\\mapsto" },
+      { l: "⟼", i: "\\longmapsto" },
+      { l: "⇌", i: "\\rightleftharpoons", t: "可逆 / 平衡" },
+      { l: "⟶", i: "\\longrightarrow" },
+      { l: "⟵", i: "\\longleftarrow" },
+      { l: "↠", i: "\\twoheadrightarrow" },
+      { l: "↗", i: "\\nearrow" },
+      { l: "↘", i: "\\searrow" },
+      { l: "↖", i: "\\nwarrow" },
+      { l: "↙", i: "\\swarrow" },
+      { l: "⇀", i: "\\rightharpoonup" },
+      { l: "↪", i: "\\hookrightarrow" },
+    ],
+  },
+  {
+    name: "大型运算",
+    items: [
+      { l: "∑", i: "\\sum_{#0}^{#0}", t: "求和" },
+      { l: "∏", i: "\\prod_{#0}^{#0}", t: "连乘" },
+      { l: "∐", i: "\\coprod_{#0}^{#0}", t: "余积" },
+      { l: "∫", i: "\\int_{#0}^{#0}", t: "积分" },
+      { l: "∬", i: "\\iint", t: "二重积分" },
+      { l: "∭", i: "\\iiint", t: "三重积分" },
+      { l: "∮", i: "\\oint", t: "环路积分" },
+      { l: "⋃", i: "\\bigcup_{#0}^{#0}", t: "并" },
+      { l: "⋂", i: "\\bigcap_{#0}^{#0}", t: "交" },
+      { l: "⊔", i: "\\bigsqcup_{#0}^{#0}", t: "不交并" },
+      { l: "⋁", i: "\\bigvee_{#0}^{#0}", t: "析取" },
+      { l: "⋀", i: "\\bigwedge_{#0}^{#0}", t: "合取" },
+      { l: "⨄", i: "\\biguplus_{#0}^{#0}" },
+      { l: "⨁", i: "\\bigoplus_{#0}^{#0}" },
+      { l: "⨂", i: "\\bigotimes_{#0}^{#0}" },
+      { l: "⨀", i: "\\bigodot_{#0}^{#0}" },
+      { l: "lim", i: "\\lim_{#0}", t: "极限" },
+      { l: "limsup", i: "\\limsup_{#0}", t: "上极限" },
+      { l: "liminf", i: "\\liminf_{#0}", t: "下极限" },
+      { l: "max", i: "\\max_{#0}", t: "最大值" },
+      { l: "min", i: "\\min_{#0}", t: "最小值" },
+      { l: "sup", i: "\\sup_{#0}", t: "上确界" },
+      { l: "inf", i: "\\inf_{#0}", t: "下确界" },
+    ],
+  },
+  {
+    name: "集合逻辑",
+    items: [
+      { l: "∈", i: "\\in" },
+      { l: "∉", i: "\\notin" },
+      { l: "∋", i: "\\ni" },
+      { l: "⊂", i: "\\subset" },
+      { l: "⊆", i: "\\subseteq" },
+      { l: "⊊", i: "\\subsetneq" },
+      { l: "⊄", i: "\\not\\subset" },
+      { l: "⊃", i: "\\supset" },
+      { l: "⊇", i: "\\supseteq" },
+      { l: "∪", i: "\\cup" },
+      { l: "∩", i: "\\cap" },
+      { l: "∅", i: "\\emptyset" },
+      { l: "∁", i: "\\complement", t: "补集" },
+      { l: "∀", i: "\\forall" },
+      { l: "∃", i: "\\exists" },
+      { l: "∄", i: "\\nexists" },
+      { l: "∧", i: "\\land" },
+      { l: "∨", i: "\\lor" },
+      { l: "¬", i: "\\neg" },
+      { l: "⊤", i: "\\top", t: "真" },
+      { l: "⊥", i: "\\bot", t: "假" },
+      { l: "⟹", i: "\\implies" },
+      { l: "⟺", i: "\\iff" },
+      { l: "∴", i: "\\therefore" },
+      { l: "∵", i: "\\because" },
+      { l: "ℕ", i: "\\mathbb{N}", t: "自然数集" },
+      { l: "ℤ", i: "\\mathbb{Z}", t: "整数集" },
+      { l: "ℚ", i: "\\mathbb{Q}", t: "有理数集" },
+      { l: "ℝ", i: "\\mathbb{R}", t: "实数集" },
+      { l: "ℂ", i: "\\mathbb{C}", t: "复数集" },
+    ],
+  },
+  {
+    name: "希腊字母",
+    items: [
+      { l: "α", i: "\\alpha" },
+      { l: "β", i: "\\beta" },
+      { l: "γ", i: "\\gamma" },
+      { l: "δ", i: "\\delta" },
+      { l: "ε", i: "\\varepsilon" },
+      { l: "ϵ", i: "\\epsilon" },
+      { l: "ζ", i: "\\zeta" },
+      { l: "η", i: "\\eta" },
+      { l: "θ", i: "\\theta" },
+      { l: "ϑ", i: "\\vartheta" },
+      { l: "ι", i: "\\iota" },
+      { l: "κ", i: "\\kappa" },
+      { l: "λ", i: "\\lambda" },
+      { l: "μ", i: "\\mu" },
+      { l: "ν", i: "\\nu" },
+      { l: "ξ", i: "\\xi" },
+      { l: "π", i: "\\pi" },
+      { l: "ϖ", i: "\\varpi" },
+      { l: "ρ", i: "\\rho" },
+      { l: "ς", i: "\\varsigma" },
+      { l: "σ", i: "\\sigma" },
+      { l: "τ", i: "\\tau" },
+      { l: "υ", i: "\\upsilon" },
+      { l: "φ", i: "\\varphi" },
+      { l: "ϕ", i: "\\phi" },
+      { l: "χ", i: "\\chi" },
+      { l: "ψ", i: "\\psi" },
+      { l: "ω", i: "\\omega" },
+      { l: "Γ", i: "\\Gamma" },
+      { l: "Δ", i: "\\Delta" },
+      { l: "Θ", i: "\\Theta" },
+      { l: "Λ", i: "\\Lambda" },
+      { l: "Ξ", i: "\\Xi" },
+      { l: "Π", i: "\\Pi" },
+      { l: "Σ", i: "\\Sigma" },
+      { l: "Φ", i: "\\Phi" },
+      { l: "Ψ", i: "\\Psi" },
+      { l: "Ω", i: "\\Omega" },
+    ],
+  },
+  {
+    name: "其它",
+    items: [
+      { l: "∂", i: "\\partial", t: "偏导" },
+      { l: "∇", i: "\\nabla", t: "梯度算子" },
+      { l: "∞", i: "\\infty", t: "无穷" },
+      { l: "′", i: "\\prime", t: "撇号" },
+      { l: "∠", i: "\\angle", t: "角" },
+      { l: "°", i: "^\\circ", t: "度" },
+      { l: "∡", i: "\\measuredangle" },
+      { l: "△", i: "\\triangle" },
+      { l: "□", i: "\\square" },
+      { l: "⋯", i: "\\cdots", t: "居中省略号" },
+      { l: "…", i: "\\ldots", t: "底部省略号" },
+      { l: "⋮", i: "\\vdots", t: "竖向省略号" },
+      { l: "⋱", i: "\\ddots", t: "斜向省略号" },
+      { l: "∢", i: "\\sphericalangle" },
+      { l: "ℏ", i: "\\hbar" },
+      { l: "ℓ", i: "\\ell" },
+      { l: "ℜ", i: "\\Re" },
+      { l: "ℑ", i: "\\Im" },
+      { l: "℘", i: "\\wp" },
+      { l: "ℵ", i: "\\aleph" },
+      { l: "ı", i: "\\imath" },
+      { l: "ȷ", i: "\\jmath" },
+      { l: "♯", i: "\\sharp" },
+      { l: "♭", i: "\\flat" },
+      { l: "♮", i: "\\natural" },
+      { l: "✓", i: "\\checkmark" },
+      { l: "%", i: "\\%" },
+      { l: "∎", i: "\\blacksquare", t: "证毕" },
+    ],
+  },
+];
 
 const $ = (id) => document.getElementById(id);
 const boot = window.__gmathBoot || { start: performance.now(), marks: [] };
@@ -20,7 +298,7 @@ const bootMark = (name) => {
 const bootReport = () =>
   ["GMath 启动耗时:", ...boot.marks.map((m) => `- ${m.name}: ${m.ms} ms`)].join("\n");
 
-let mathfield, latexEl, statusEl, debugEl, insertBtn, displayModeEl, modeLine;
+let mathfield, latexEl, statusEl, debugEl, insertBtn, layoutModeEl, eqNumberEl, eqNumberRow, modeLine;
 
 // 同步状态机
 let linked = false; // 面板当前是否“连接”着文档里的某个公式
@@ -68,11 +346,40 @@ function currentOmml() {
   return mml2omml(mathml);
 }
 
-function buildFlatOpc(ommlMath, display) {
+// 生成右编号的文字 run：留空→自动编号（Word SEQ 域，会自动续号）；否则用字面文本
+function buildNumberRuns(numberText) {
+  const t = (numberText || "").trim();
+  if (t) {
+    return `<w:r><w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
+  }
+  // ( SEQ equation \* ARABIC ) → (1) (2) …，由 Word 维护并可整篇续号
+  return (
+    `<w:r><w:t xml:space="preserve">(</w:t></w:r>` +
+    `<w:r><w:fldChar w:fldCharType="begin"/></w:r>` +
+    `<w:r><w:instrText xml:space="preserve"> SEQ equation \\* ARABIC </w:instrText></w:r>` +
+    `<w:r><w:fldChar w:fldCharType="separate"/></w:r>` +
+    `<w:r><w:t>1</w:t></w:r>` +
+    `<w:r><w:fldChar w:fldCharType="end"/></w:r>` +
+    `<w:r><w:t xml:space="preserve">)</w:t></w:r>`
+  );
+}
+
+// layout: "inline"（行内）| "display"（行间居中）| "numbered"（居中＋右侧编号）
+function buildFlatOpc(ommlMath, layout, numberText) {
   let oMath = ommlMath.replace(/^\s*<\?xml[^>]*\?>\s*/i, "").trim();
-  const mathBlock = display
-    ? `<m:oMathPara><m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr>${oMath}</m:oMathPara>`
-    : oMath;
+  let mathBlock;
+  if (layout === "display") {
+    mathBlock = `<m:oMathPara><m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr>${oMath}</m:oMathPara>`;
+  } else if (layout === "numbered") {
+    // 用「相对页边距的定位制表符」实现：公式居中、编号靠右贴右边距，与纸张/页宽无关
+    mathBlock =
+      `<w:r><w:ptab w:relativeTo="margin" w:alignment="center" w:leader="none"/></w:r>` +
+      oMath +
+      `<w:r><w:ptab w:relativeTo="margin" w:alignment="right" w:leader="none"/></w:r>` +
+      buildNumberRuns(numberText);
+  } else {
+    mathBlock = oMath; // 行内
+  }
   const documentXml =
     `<w:document ` +
     `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
@@ -101,12 +408,72 @@ function buildFlatOpc(ommlMath, display) {
 
 const describeError = (e) => ({ code: e.code, message: e.message, debugInfo: e.debugInfo });
 
+// 单个符号/模板按钮：文本标签 l + 点击插入模板 i（#0 → 插入后的光标占位）
+function renderSymButton(it) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.dataset.insert = it.i;
+  if (it.t) b.title = it.t;
+  b.textContent = it.l;
+  return b;
+}
+
+function showPaletteCat(idx) {
+  const grid = $("symGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  SYMBOL_CATEGORIES[idx].items.forEach((it) => grid.appendChild(renderSymButton(it)));
+}
+
+// 渲染分类符号速选：上方分类标签，点选某类后在下方展开该类符号
+function renderPalette() {
+  const tabs = $("catTabs");
+  if (!tabs || !$("symGrid")) return;
+
+  SYMBOL_CATEGORIES.forEach((cat, idx) => {
+    const t = document.createElement("button");
+    t.type = "button";
+    t.textContent = cat.name;
+    t.dataset.cat = String(idx);
+    if (idx === 0) t.classList.add("active");
+    tabs.appendChild(t);
+  });
+
+  tabs.addEventListener("click", (ev) => {
+    const t = ev.target.closest("button[data-cat]");
+    if (!t) return;
+    tabs.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+    t.classList.add("active");
+    showPaletteCat(Number(t.dataset.cat));
+  });
+
+  showPaletteCat(0);
+}
+
+// 符号速选是纯 DOM，模块加载即渲染，立即可见可切换（此刻 MathLive 可能未就绪，
+// 先用文本回退；待 wireUp 中 MathLive 确认就绪后再重渲染为真实公式预览）。
+renderPalette();
+
+// 当前选中的版式：inline / display / numbered
+function getLayout() {
+  const active = layoutModeEl.querySelector("button.active");
+  return active ? active.dataset.mode : "display";
+}
+
+function setLayout(mode) {
+  layoutModeEl.querySelectorAll("button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+  });
+  eqNumberRow.hidden = mode !== "numbered"; // 编号输入只在「右编号」时出现
+  scheduleSync();
+}
+
 // 把一段 LaTeX 灌入面板（不触发回写）
 function loadIntoPane(latex, display) {
   loadingDoc = true;
   mathfield.setValue(latex);
   latexEl.value = mathfield.getValue("latex");
-  if (typeof display === "boolean") displayModeEl.checked = display;
+  if (typeof display === "boolean") setLayout(display ? "display" : "inline");
   loadingDoc = false;
 }
 
@@ -117,7 +484,7 @@ async function insertNew() {
     setStatus("公式为空，请先输入内容。", "err");
     return;
   }
-  const flatOpc = buildFlatOpc(omml, displayModeEl.checked);
+  const flatOpc = buildFlatOpc(omml, getLayout(), eqNumberEl.value);
   debugEl.value = "构建版本: " + BUILD + "\n\nOMML:\n" + omml + "\n\n完整 OOXML:\n" + flatOpc;
   applying = true;
   try {
@@ -142,7 +509,7 @@ async function syncToDoc() {
   if (!linked) return;
   const omml = currentOmml();
   if (!omml) return;
-  const flatOpc = buildFlatOpc(omml, displayModeEl.checked);
+  const flatOpc = buildFlatOpc(omml, getLayout(), eqNumberEl.value);
   applying = true;
   try {
     await Word.run(async (context) => {
@@ -200,11 +567,15 @@ async function readFromSelection() {
 function wireUp(inWord) {
   bootMark("wireUp start");
   mathfield = $("mathfield");
+  // 关闭虚拟键盘：聚焦时不再自动弹出（角标已用 CSS 隐藏）
+  mathfield.mathVirtualKeyboardPolicy = "manual";
   latexEl = $("latex");
   statusEl = $("status");
   debugEl = $("debug");
   insertBtn = $("insertBtn");
-  displayModeEl = $("displayMode");
+  layoutModeEl = $("layoutMode");
+  eqNumberEl = $("eqNumber");
+  eqNumberRow = $("eqNumberRow");
   modeLine = $("modeLine");
 
   latexEl.value = mathfield.getValue("latex");
@@ -216,7 +587,12 @@ function wireUp(inWord) {
     mathfield.setValue(latexEl.value, { suppressChangeNotifications: true });
     scheduleSync();
   });
-  displayModeEl.addEventListener("change", scheduleSync);
+  layoutModeEl.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-mode]");
+    if (!btn) return;
+    setLayout(btn.dataset.mode);
+  });
+  eqNumberEl.addEventListener("input", scheduleSync);
 
   $("palette").addEventListener("click", (ev) => {
     const btn = ev.target.closest("button[data-insert]");
