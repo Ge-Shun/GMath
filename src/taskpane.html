@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GMath 公式</title>
+
+  <!-- Office.js（必须以经典脚本方式加载） -->
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
+  <!-- MathLive：可视化公式编辑器，自动注册 <math-field> 元素 -->
+  <script defer src="https://cdn.jsdelivr.net/npm/mathlive"></script>
+
+  <style>
+    :root {
+      --fg: #201f1e;
+      --muted: #605e5c;
+      --accent: #0f6cbd;
+      --border: #e1dfdd;
+      --bg-soft: #faf9f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--fg);
+      padding: 12px;
+      font-size: 14px;
+    }
+    h1 { font-size: 15px; margin: 0 0 4px; }
+    .hint { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+
+    math-field {
+      display: block;
+      width: 100%;
+      min-height: 64px;
+      font-size: 22px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+    }
+    math-field:focus-within { border-color: var(--accent); }
+
+    .row { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+    button {
+      font: inherit;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--accent); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+
+    .latex-box {
+      margin-top: 12px;
+    }
+    .latex-box label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    textarea {
+      width: 100%;
+      min-height: 56px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 13px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      resize: vertical;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      background: var(--bg-soft);
+      color: var(--muted);
+      min-height: 18px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .status.ok { background: #f0f9f0; color: #0e700e; }
+    .status.err { background: #fdf3f4; color: #a4262c; }
+    details { margin-top: 12px; font-size: 12px; color: var(--muted); }
+    .palette { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .palette button { background:#fff; color: var(--fg); border:1px solid var(--border); padding:4px 8px; font-size:16px;}
+  </style>
+</head>
+<body>
+  <h1>GMath 公式</h1>
+  <p class="hint">可视化或用 LaTeX 编辑公式，点击「插入到 Word」生成原生可编辑公式。</p>
+
+  <div class="palette" id="palette">
+    <button data-insert="\frac{#0}{#0}">a/b</button>
+    <button data-insert="\sqrt{#0}">√</button>
+    <button data-insert="x^{#0}">xⁿ</button>
+    <button data-insert="x_{#0}">xₙ</button>
+    <button data-insert="\sum_{#0}^{#0}">∑</button>
+    <button data-insert="\int_{#0}^{#0}">∫</button>
+    <button data-insert="\lim_{#0}">lim</button>
+    <button data-insert="\begin{pmatrix}#0\end{pmatrix}">( )</button>
+  </div>
+
+  <math-field id="mathfield">x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}</math-field>
+
+  <div class="row">
+    <button id="insertBtn" disabled>插入到 Word</button>
+    <button id="clearBtn" class="secondary">清空</button>
+    <label class="check">
+      <input type="checkbox" id="displayMode" checked />
+      独立成行（显示公式）
+    </label>
+  </div>
+
+  <div class="latex-box">
+    <label for="latex">LaTeX（双向同步，可直接编辑）</label>
+    <textarea id="latex" spellcheck="false"></textarea>
+  </div>
+
+  <div class="status" id="status">正在初始化…</div>
+
+  <details>
+    <summary>查看转换得到的 OMML / MathML（调试用）</summary>
+    <textarea id="debug" readonly style="min-height:120px;margin-top:8px;"></textarea>
+  </details>
+
+  <script type="module" src="./taskpane.js"></script>
+</body>
+</html>

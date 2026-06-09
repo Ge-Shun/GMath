@@ -1,0 +1,17 @@
+{
+  "name": "gmath-word-addin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Word 加载项：可视化编辑并插入原生可编辑公式，替代 MathType。",
+  "scripts": {
+    "dev-certs": "office-addin-dev-certs install",
+    "serve": "http-server ./src -p 3000 -S -C \"$HOME/.office-addin-dev-certs/localhost.crt\" -K \"$HOME/.office-addin-dev-certs/localhost.key\" --cors -c-1",
+    "sideload:mac": "mkdir -p \"$HOME/Library/Containers/com.microsoft.Word/Data/Documents/wef\" && cp manifest.xml \"$HOME/Library/Containers/com.microsoft.Word/Data/Documents/wef/\" && echo '已复制 manifest 到 Word 的 wef 目录，重启 Word 后在「开始」选项卡找到 GMath。'",
+    "validate": "office-addin-manifest validate manifest.xml"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "office-addin-dev-certs": "^1.13.4",
+    "office-addin-manifest": "^1.13.4"
+  }
+}
