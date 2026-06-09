@@ -7,15 +7,14 @@
   xsi:type="TaskPaneApp">
 
   <Id>8DE426EB-A1F7-4A21-A119-07D5983413B5</Id>
-  <Version>0.1.0</Version>
+  <Version>1.0.1</Version>
   <ProviderName>GMath</ProviderName>
   <DefaultLocale>zh-CN</DefaultLocale>
   <DisplayName DefaultValue="GMath 公式" />
   <Description DefaultValue="在 Word 中可视化编辑并插入原生可编辑公式，替代 MathType。" />
 
-  <!-- 开发时图标可留空或指向本地，先用占位 -->
-  <IconUrl DefaultValue="https://ge-shun.github.io/GMath/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://ge-shun.github.io/GMath/assets/icon-64.png" />
+  <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-64.png" />
 
   <SupportUrl DefaultValue="https://ge-shun.github.io/GMath/" />
 
@@ -24,7 +23,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://ge-shun.github.io/GMath/src/taskpane.html" />
+    <SourceLocation DefaultValue="https://localhost:3000/src/taskpane.html" />
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -73,12 +72,12 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16" DefaultValue="https://ge-shun.github.io/GMath/assets/icon-16.png" />
-        <bt:Image id="Icon.32" DefaultValue="https://ge-shun.github.io/GMath/assets/icon-32.png" />
-        <bt:Image id="Icon.80" DefaultValue="https://ge-shun.github.io/GMath/assets/icon-80.png" />
+        <bt:Image id="Icon.16" DefaultValue="https://localhost:3000/assets/icon-16.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://localhost:3000/assets/icon-32.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://localhost:3000/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://ge-shun.github.io/GMath/src/taskpane.html" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/src/taskpane.html" />
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ge-shun.github.io/GMath/" />
       </bt:Urls>
       <bt:ShortStrings>

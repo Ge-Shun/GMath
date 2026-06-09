@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
-  <title id="title">GMath icon option D</title>
-  <desc id="desc">Minimal G monogram with a formula insertion arrow.</desc>
-  <rect width="1024" height="1024" rx="184" fill="#111827"/>
-  <path d="M698 350c-48-58-119-90-198-90-147 0-260 112-260 252s113 252 260 252c121 0 217-70 248-174H520v-98h354c3 23 3 42 3 60 0 188-150 342-377 342-223 0-400-168-400-382S277 130 500 130c127 0 236 47 310 130l-112 90z" fill="#ffffff"/>
-  <path d="M506 514h286" fill="none" stroke="#38bdf8" stroke-width="76" stroke-linecap="round"/>
-  <path d="M724 396l116 118-116 118" fill="none" stroke="#38bdf8" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M312 560h120M312 670h206" fill="none" stroke="#38bdf8" stroke-width="44" stroke-linecap="round"/>
-</svg>
