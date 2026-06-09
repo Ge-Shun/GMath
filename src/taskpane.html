@@ -17,6 +17,9 @@
 
   <link rel="stylesheet" href="./vendor/mathlive/mathlive-fonts.css" />
 
+  <!-- 本地化显示字体：Fraunces（字标衬线）+ JetBrains Mono（LaTeX 源）；中文回退系统字体 -->
+  <link rel="stylesheet" href="./vendor/fonts/fonts.css" />
+
   <!-- Office.js（必须以经典脚本方式加载） -->
   <script
     src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"
@@ -34,93 +37,363 @@
 
   <style>
     :root {
-      --fg: #201f1e;
-      --muted: #605e5c;
-      --accent: #0f6cbd;
-      --border: #e1dfdd;
-      --bg-soft: #faf9f8;
+      /* 墨色 / 纸张：方格手稿质感 */
+      --ink:        #15213a;
+      --ink-soft:   #3a4a66;
+      --muted:      #6b7585;
+      --paper:      #f7f8fb;
+      --paper-2:    #ffffff;
+      --line:       #e3e7ef;
+      --line-soft:  #eef1f6;
+      /* 品牌：蓝（主）+ 绿（连接态），呼应图标里的 ∑ 与十字 */
+      --blue:       #1668c4;
+      --blue-deep:  #0c4f9e;
+      --blue-tint:  #eaf2fc;
+      --green:      #0e7a4a;
+      --green-tint: #e8f5ee;
+      --red:        #b42318;
+      --red-tint:   #fdecea;
+      /* 方格纸网格 */
+      --grid:       rgba(22, 104, 196, 0.055);
+      --radius:     12px;
+      --shadow:     0 1px 2px rgba(21, 33, 58, 0.05), 0 8px 24px -12px rgba(21, 33, 58, 0.18);
+      --display:    "Fraunces", "Songti SC", "Noto Serif SC", Georgia, serif;
+      --sans:       -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      --mono:       "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
     }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink:        #eef1f7;
+        --ink-soft:   #c4ccdb;
+        --muted:      #8d97aa;
+        --paper:      #11141c;
+        --paper-2:    #181d27;
+        --line:       #2a313f;
+        --line-soft:  #222936;
+        --blue:       #4f9cf0;
+        --blue-deep:  #2f7fd8;
+        --blue-tint:  #15263b;
+        --green:      #46c489;
+        --green-tint: #122a20;
+        --red:        #f0837a;
+        --red-tint:   #2c1816;
+        --grid:       rgba(79, 156, 240, 0.07);
+        --shadow:     0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+      }
+    }
+
     * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
       margin: 0;
-      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-      color: var(--fg);
-      padding: 12px;
+      padding: 16px 14px 22px;
+      font-family: var(--sans);
+      color: var(--ink);
       font-size: 14px;
+      line-height: 1.5;
+      background-color: var(--paper);
+      /* 方格手稿底纹 —— 数学工具的主题暗示，极轻 */
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 22px 22px;
+      background-position: -1px -1px;
     }
-    h1 { font-size: 15px; margin: 0 0 4px; }
-    .hint { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
 
+    /* ===== 入场：载入时分层淡入上浮 ===== */
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .reveal { opacity: 0; animation: rise .55s cubic-bezier(.21,.7,.3,1) forwards; }
+    .reveal:nth-of-type(1) { animation-delay: .02s; }
+    header.reveal { animation-delay: 0s; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { animation: none; opacity: 1; }
+    }
+
+    /* ===== 页眉品牌区 ===== */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding-bottom: 13px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+      animation-delay: 0s;
+    }
+    .mark {
+      flex: none;
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      display: block;
+      object-fit: contain;
+      box-shadow: 0 3px 10px -3px rgba(22,104,196,.4);
+    }
+    .brand { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    h1 {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 21px;
+      letter-spacing: -.01em;
+      margin: 0;
+      line-height: 1.1;
+    }
+    h1 .gm { font-style: italic; }
+    .tagline {
+      color: var(--muted);
+      font-size: 11.5px;
+      letter-spacing: .02em;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+      margin: 0 0 14px;
+    }
+
+    /* 小节标签 */
+    .eyebrow {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 7px;
+    }
+    .eyebrow::after {
+      content: ""; flex: 1; height: 1px;
+      background: linear-gradient(90deg, var(--line), transparent);
+    }
+
+    /* ===== 符号速选 ===== */
+    .palette { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .palette button {
+      font-family: var(--display);
+      background: var(--paper-2);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      min-width: 38px;
+      padding: 6px 9px;
+      font-size: 16px;
+      line-height: 1.2;
+      cursor: pointer;
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, color .12s ease;
+    }
+    .palette button:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px -6px rgba(22,104,196,.5);
+    }
+    .palette button:active { transform: translateY(0); }
+
+    /* ===== 公式编辑卡 ===== */
+    .field-card {
+      position: relative;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 4px;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .field-card::before {
+      /* 左侧装订线 / 引文规则 */
+      content: "";
+      position: absolute;
+      left: 0; top: 12px; bottom: 12px;
+      width: 3px;
+      border-radius: 3px;
+      background: linear-gradient(var(--blue), var(--blue-deep));
+      opacity: .85;
+      transition: background .2s ease;
+    }
+    .field-card:focus-within {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px var(--blue-tint), var(--shadow);
+    }
     math-field {
       display: block;
       width: 100%;
-      min-height: 64px;
-      font-size: 22px;
-      padding: 8px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: #fff;
+      min-height: 72px;
+      font-size: 23px;
+      padding: 12px 12px 12px 14px;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--ink);
+      --selection-background-color: var(--blue-tint);
+      --caret-color: var(--blue);
     }
-    math-field:focus-within { border-color: var(--accent); }
+    math-field:focus { outline: none; }
 
-    .row { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
-    button {
-      font: inherit;
-      padding: 8px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--accent);
-      background: var(--accent);
-      color: #fff;
-      cursor: pointer;
-    }
-    button.secondary { background: #fff; color: var(--accent); }
-    button:disabled { opacity: .5; cursor: not-allowed; }
-    label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
-
+    /* ===== 模式徽章 ===== */
     .mode {
-      margin: 10px 0 2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin: 13px 0 4px;
+      padding: 5px 11px 5px 9px;
       font-size: 12px;
       font-weight: 600;
-      color: var(--accent);
+      color: var(--blue-deep);
+      background: var(--blue-tint);
+      border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+      border-radius: 999px;
+      transition: all .2s ease;
     }
-    .mode.linked { color: #0e700e; }
-    .latex-box {
-      margin-top: 12px;
+    .mode::before {
+      content: "";
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 20%, transparent);
     }
-    .latex-box label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .mode.linked {
+      color: var(--green);
+      background: var(--green-tint);
+      border-color: color-mix(in srgb, var(--green) 28%, transparent);
+    }
+    .mode.linked::before {
+      background: var(--green);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); }
+      50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 8%, transparent); }
+    }
+
+    /* ===== 操作行 ===== */
+    .row { display: flex; gap: 9px; align-items: center; margin: 11px 0 4px; flex-wrap: wrap; }
+    button {
+      font-family: var(--sans);
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 9px 16px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease, background .15s ease, border-color .15s ease;
+    }
+    #insertBtn {
+      color: #fff;
+      background: linear-gradient(165deg, var(--blue), var(--blue-deep));
+      box-shadow: 0 4px 12px -4px rgba(22,104,196,.55), inset 0 1px 0 rgba(255,255,255,.22);
+    }
+    #insertBtn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 7px 18px -5px rgba(22,104,196,.6), inset 0 1px 0 rgba(255,255,255,.22); }
+    #insertBtn:not(:disabled):active { transform: translateY(0); }
+    button.secondary {
+      background: var(--paper-2);
+      color: var(--ink-soft);
+      border-color: var(--line);
+    }
+    button.secondary:hover { border-color: var(--ink-soft); color: var(--ink); }
+    button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; transform: none; }
+
+    label.check {
+      display: inline-flex; align-items: center; gap: 7px;
+      color: var(--muted); font-size: 12.5px;
+      cursor: pointer; user-select: none;
+      margin-left: auto;
+    }
+    label.check input { accent-color: var(--blue); width: 15px; height: 15px; cursor: pointer; }
+
+    /* ===== LaTeX 源 ===== */
+    .latex-box { margin-top: 16px; }
     textarea {
       width: 100%;
-      min-height: 56px;
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 13px;
-      padding: 8px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      min-height: 58px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--ink);
+      padding: 10px 11px;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 9px;
       resize: vertical;
+      transition: border-color .15s ease, box-shadow .15s ease;
     }
+    textarea:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px var(--blue-tint);
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    /* ===== 状态条 ===== */
     .status {
-      margin-top: 12px;
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      background: var(--bg-soft);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      background: var(--line-soft);
       color: var(--muted);
+      border: 1px solid var(--line);
       min-height: 18px;
       white-space: pre-wrap;
       word-break: break-word;
     }
-    .status.ok { background: #f0f9f0; color: #0e700e; }
-    .status.err { background: #fdf3f4; color: #a4262c; }
-    details { margin-top: 12px; font-size: 12px; color: var(--muted); }
-    .palette { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-    .palette button { background:#fff; color: var(--fg); border:1px solid var(--border); padding:4px 8px; font-size:16px;}
+    .status::before {
+      content: "›";
+      flex: none;
+      font-weight: 700;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .status.ok  { background: var(--green-tint); color: var(--green); border-color: color-mix(in srgb, var(--green) 26%, transparent); }
+    .status.ok::before  { content: "✓"; color: var(--green); }
+    .status.err { background: var(--red-tint); color: var(--red); border-color: color-mix(in srgb, var(--red) 26%, transparent); }
+    .status.err::before { content: "!"; color: var(--red); }
+
+    /* ===== 调试折叠 ===== */
+    details {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    details summary {
+      cursor: pointer;
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      user-select: none;
+      transition: color .12s ease;
+    }
+    details summary:hover { color: var(--ink-soft); }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::before {
+      content: "▸";
+      font-size: 10px;
+      transition: transform .15s ease;
+    }
+    details[open] summary::before { transform: rotate(90deg); }
+    details textarea { color: var(--muted); }
   </style>
 </head>
 <body>
-  <h1>GMath 公式</h1>
-  <p class="hint">可视化或用 LaTeX 编辑公式 →「插入到 Word」生成原生公式。点选文档里已有的公式可载入修改，改动自动同步。</p>
+  <header class="reveal">
+    <img class="mark" src="../assets/icon-80.png" alt="GMath" width="38" height="38" />
+    <div class="brand">
+      <h1><span class="gm">GMath</span> 公式</h1>
+      <span class="tagline">原生可编辑公式 · 替代 MathType</span>
+    </div>
+  </header>
 
-  <div class="palette" id="palette">
+  <p class="hint reveal">可视化或用 LaTeX 编辑公式 →「插入到 Word」生成原生公式。点选文档里已有的公式可载入修改，改动自动同步。</p>
+
+  <p class="eyebrow reveal">符号速选</p>
+  <div class="palette reveal" id="palette">
     <button data-insert="\frac{#0}{#0}">a/b</button>
     <button data-insert="\sqrt{#0}">√</button>
     <button data-insert="x^{#0}">xⁿ</button>
@@ -131,11 +404,13 @@
     <button data-insert="\begin{pmatrix}#0\end{pmatrix}">( )</button>
   </div>
 
-  <math-field id="mathfield"></math-field>
+  <div class="field-card reveal">
+    <math-field id="mathfield"></math-field>
+  </div>
 
   <div class="mode" id="modeLine">新建公式</div>
 
-  <div class="row">
+  <div class="row reveal">
     <button id="insertBtn" disabled>插入到 Word</button>
     <button id="clearBtn" class="secondary">清空</button>
     <label class="check">
@@ -144,14 +419,14 @@
     </label>
   </div>
 
-  <div class="latex-box">
-    <label for="latex">LaTeX（双向同步，可直接编辑）</label>
-    <textarea id="latex" spellcheck="false"></textarea>
+  <div class="latex-box reveal">
+    <p class="eyebrow">LaTeX 源 · 双向同步</p>
+    <textarea id="latex" spellcheck="false" placeholder="\frac{a}{b}"></textarea>
   </div>
 
-  <div class="status" id="status">正在初始化…</div>
+  <div class="status reveal" id="status">正在初始化…</div>
 
-  <details>
+  <details class="reveal">
     <summary>查看转换得到的 OMML / MathML（调试用）</summary>
     <textarea id="debug" readonly style="min-height:120px;margin-top:8px;"></textarea>
   </details>

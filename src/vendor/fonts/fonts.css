@@ -1,0 +1,24 @@
+/* 本地化字体：Fraunces（字标衬线，仅拉丁子集）+ JetBrains Mono（LaTeX 源）
+   均为可变字体，单文件覆盖整段字重范围；中文等非拉丁字形回退到系统字体。 */
+
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fraunces-roman.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fraunces-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("./jetbrains-mono.woff2") format("woff2");
+}
