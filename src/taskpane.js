@@ -22,8 +22,9 @@ function buildFlatOpc(ommlMath, display) {
     ? `<m:oMathPara><m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr>${oMath}</m:oMathPara>`
     : oMath;
 
+  // 注意：pkg:xmlData 内的各部件不能再带 <?xml?> 声明，
+  // 声明只允许出现在整个包的最开头，否则 insertOoxml 会抛 GeneralException。
   const documentXml =
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<w:document ` +
     `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
     `xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">` +
@@ -31,7 +32,6 @@ function buildFlatOpc(ommlMath, display) {
     `</w:document>`;
 
   const relsXml =
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
     `<Relationship Id="rId1" ` +
     `Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" ` +
