@@ -141,6 +141,26 @@
     }
     h1 .gm { font-style: italic; }
 
+    /* 语言切换 */
+    .lang-btn {
+      flex: none;
+      margin-left: auto;
+      align-self: flex-start;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      min-width: 38px;
+      padding: 5px 10px;
+      color: var(--blue-deep);
+      background: var(--blue-tint);
+      border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .12s ease, border-color .12s ease;
+    }
+    .lang-btn:hover { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 16%, var(--paper-2)); }
+
     /* 小节标签 */
     .eyebrow {
       display: flex; align-items: center; gap: 7px;
@@ -584,45 +604,48 @@
   <header class="reveal">
     <img class="mark" src="../assets/icon-80.png" alt="GMath" width="38" height="38" />
     <div class="brand">
-      <h1><span class="gm">GMath</span> 公式</h1>
+      <h1><span class="gm">GMath</span> <span data-i18n="appTitle">公式</span></h1>
     </div>
+    <button type="button" id="langBtn" class="lang-btn" title="中文 / English">EN</button>
   </header>
 
-  <p class="eyebrow reveal">符号速选</p>
+  <p class="eyebrow reveal" data-i18n="ebSymbols">符号速选</p>
   <div class="palette reveal" id="palette">
     <div class="cat-tabs" id="catTabs"></div>
     <div class="sym-grid" id="symGrid"></div>
   </div>
 
-  <p class="eyebrow reveal">图片转公式 · AI 识别
-    <button type="button" id="aiSettingsBtn" class="eyebrow-btn" title="配置大模型接口">⚙ 接口设置</button>
+  <p class="eyebrow reveal"><span data-i18n="ebImage">图片转公式 · AI 识别</span>
+    <button type="button" id="aiSettingsBtn" class="eyebrow-btn"
+            data-i18n="apiSettings" data-i18n-title="apiSettingsTitle"
+            title="配置大模型接口">⚙ 接口设置</button>
   </p>
   <div class="ai reveal">
-    <div class="ai-drop" id="aiDrop" tabindex="0" title="粘贴或点击选择图片">
+    <div class="ai-drop" id="aiDrop" tabindex="0" data-i18n-title="aiDropTitle" title="粘贴或点击选择图片">
       <input type="file" id="aiFile" accept="image/*" hidden />
       <div class="ai-hint" id="aiHint">
         <span class="ai-cam">📷</span>
-        <span>粘贴截图（Ctrl/⌘+V）<br />或点击 / 拖入图片</span>
+        <span data-i18n-html="aiHint">粘贴截图（Ctrl/⌘+V）<br />或点击 / 拖入图片</span>
       </div>
-      <img id="aiThumb" class="ai-thumb" hidden alt="待识别图片" />
+      <img id="aiThumb" class="ai-thumb" hidden alt="" />
     </div>
     <div class="ai-status" id="aiStatus" hidden></div>
 
     <div class="ai-settings" id="aiSettings" hidden>
-      <label>API 地址
-        <input type="text" id="aiUrl" spellcheck="false"
+      <label><span data-i18n="aiUrlLabel">API 地址</span>
+        <input type="text" id="aiUrl" spellcheck="false" data-i18n-ph="aiUrlPh"
                placeholder="https://api.openai.com/v1/chat/completions" />
       </label>
-      <label>API Key
+      <label><span data-i18n="aiKeyLabel">API Key</span>
         <input type="password" id="aiKey" spellcheck="false" placeholder="sk-..." />
       </label>
-      <label>模型（需支持图片/视觉）
-        <input type="text" id="aiModel" spellcheck="false"
+      <label><span data-i18n="aiModelLabel">模型（需支持图片/视觉）</span>
+        <input type="text" id="aiModel" spellcheck="false" data-i18n-ph="aiModelPh"
                placeholder="如 gpt-4o / glm-4v / qwen-vl-max" />
       </label>
       <div class="ai-srow">
-        <button type="button" id="aiSaveBtn">保存设置</button>
-        <span class="ai-note">仅存于本机浏览器；识别时把图片与 Key 发送到你填写的接口。</span>
+        <button type="button" id="aiSaveBtn" data-i18n="aiSave">保存设置</button>
+        <span class="ai-note" data-i18n="aiNote">仅存于本机浏览器；识别时把图片与 Key 发送到你填写的接口。</span>
       </div>
     </div>
   </div>
@@ -634,29 +657,29 @@
   <div class="mode" id="modeLine">新建公式</div>
 
   <div class="row reveal">
-    <button id="insertBtn" disabled>插入到 Word</button>
-    <button id="clearBtn" class="secondary">清空</button>
+    <button id="insertBtn" data-i18n="insert" disabled>插入到 Word</button>
+    <button id="clearBtn" class="secondary" data-i18n="clear">清空</button>
     <div class="seg" id="layoutMode" role="group" aria-label="公式版式">
-      <button type="button" data-mode="inline" title="行内公式：嵌入正文行中">行内</button>
-      <button type="button" data-mode="display" class="active" title="行间公式：独立居中成行">行间</button>
-      <button type="button" data-mode="numbered" title="右编号公式：居中成行，右侧加编号">右编号</button>
+      <button type="button" data-mode="inline" data-i18n="inline" data-i18n-title="inlineTitle" title="行内公式：嵌入正文行中">行内</button>
+      <button type="button" data-mode="display" class="active" data-i18n="display" data-i18n-title="displayTitle" title="行间公式：独立居中成行">行间</button>
+      <button type="button" data-mode="numbered" data-i18n="numbered" data-i18n-title="numberedTitle" title="右编号公式：居中成行，右侧加编号">右编号</button>
     </div>
   </div>
 
   <div class="eqnum-row reveal" id="eqNumberRow" hidden>
-    <input type="text" id="eqNumber" spellcheck="false"
+    <input type="text" id="eqNumber" spellcheck="false" data-i18n-ph="eqNumberPh"
            placeholder="留空＝自动编号（Word SEQ，会自动续号）；或自定义如 (3.1)" />
   </div>
 
   <div class="latex-box reveal">
-    <p class="eyebrow">LaTeX 源 · 双向同步</p>
-    <textarea id="latex" spellcheck="false" placeholder="在此输入 LaTeX"></textarea>
+    <p class="eyebrow" data-i18n="ebLatex">LaTeX 源 · 双向同步</p>
+    <textarea id="latex" spellcheck="false" data-i18n-ph="latexPh" placeholder="在此输入 LaTeX"></textarea>
   </div>
 
   <div class="status reveal" id="status">正在初始化…</div>
 
   <details class="reveal">
-    <summary>查看转换得到的 OMML / MathML（调试用）</summary>
+    <summary data-i18n="debugSummary">查看转换得到的 OMML / MathML（调试用）</summary>
     <textarea id="debug" readonly style="min-height:120px;margin-top:8px;"></textarea>
   </details>
 

@@ -10,7 +10,7 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-10-d";
+const BUILD = "2026-06-10-e";
 
 // XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
 const escXml = (s) =>
@@ -298,6 +298,204 @@ const bootMark = (name) => {
 const bootReport = () =>
   ["GMath 启动耗时:", ...boot.marks.map((m) => `- ${m.name}: ${m.ms} ms`)].join("\n");
 
+// ===== 国际化（中文 / English，本机记忆选择） =====
+let lang = "zh";
+try {
+  const saved = localStorage.getItem("gmath.lang");
+  if (saved === "en" || saved === "zh") lang = saved;
+} catch { /* localStorage 不可用时默认中文 */ }
+
+const I18N = {
+  zh: {
+    appTitle: "公式",
+    ebSymbols: "符号速选",
+    ebImage: "图片转公式 · AI 识别",
+    ebLatex: "LaTeX 源 · 双向同步",
+    apiSettings: "⚙ 接口设置",
+    apiSettingsTitle: "配置大模型接口",
+    aiDropTitle: "粘贴或点击选择图片",
+    aiHint: "粘贴截图（Ctrl/⌘+V）<br />或点击 / 拖入图片",
+    aiUrlLabel: "API 地址",
+    aiKeyLabel: "API Key",
+    aiModelLabel: "模型（需支持图片/视觉）",
+    aiUrlPh: "https://api.openai.com/v1/chat/completions",
+    aiModelPh: "如 gpt-4o / glm-4v / qwen-vl-max",
+    aiSave: "保存设置",
+    aiNote: "仅存于本机浏览器；识别时把图片与 Key 发送到你填写的接口。",
+    insert: "插入到 Word",
+    clear: "清空",
+    inline: "行内",
+    display: "行间",
+    numbered: "右编号",
+    inlineTitle: "行内公式：嵌入正文行中",
+    displayTitle: "行间公式：独立居中成行",
+    numberedTitle: "右编号公式：居中成行，右侧加编号",
+    eqNumberPh: "留空＝自动编号（Word SEQ，会自动续号）；或自定义如 (3.1)",
+    latexPh: "在此输入 LaTeX",
+    debugSummary: "查看转换得到的 OMML / MathML（调试用）",
+    // 动态消息
+    modeLinked: "已连接文档中的公式 —— 在此修改会自动同步回去",
+    modeNew: "新建公式（点选文档里的公式可载入编辑）",
+    emptyFormula: "公式为空，请先输入内容。",
+    insertedLinked: "已插入并连接该公式，之后在面板里改会自动同步。",
+    insertFail: "插入失败：",
+    syncedDoc: "已同步到文档。",
+    syncFail: "同步失败：",
+    loadedSel: "已载入选中的公式，可直接修改（自动同步）。",
+    aiNeedCfg: "请先在「接口设置」里填写 API 地址、Key 和模型。",
+    aiBusy: "识别中…（正在调用大模型）",
+    aiHttp: "接口返回 ",
+    aiNoFormula: "没识别出公式，换一张更清晰、只含公式的图片再试。",
+    aiDone: "识别完成，已载入编辑器，可修改后点「插入到 Word」。",
+    aiReqFail: "请求失败：",
+    aiReqFailHint: "（常见原因：接口不允许跨域 CORS，或网络/地址有误）",
+    aiSaved: "已保存接口设置。现在可以粘贴/拖入图片识别了。",
+    readImgFail: "读取图片失败",
+    parseImgFail: "图片解析失败",
+    procImgFail: "处理图片失败。",
+    startReady: "就绪。新建公式，或点选文档里的公式来编辑。",
+    startNonWord: "（非 Word 环境）编辑器可用，但只有在 Word 中才能插入/同步。",
+    loadingEditor: "正在加载公式编辑器…",
+    officeUnavailable: "Office.js 未加载，无法初始化 Word 加载项。请检查网络后重新打开任务面板。",
+    officeWaiting: "正在等待 Office 初始化，若长期不变通常是 Office.js 或 Word WebView 启动较慢。",
+    mathSlow: "公式编辑器加载较慢，通常是 MathLive CDN 下载或注册耗时。请稍候；若长期不变，请检查网络或刷新任务面板。",
+    aiSysPrompt:
+      "你是数学公式 OCR。把图片中的数学公式转成 LaTeX，只输出 LaTeX 本身，" +
+      "不要 $ 定界符、不要代码块、不要任何解释或多余文字。",
+    aiUserPrompt: "识别图片中的数学公式，只输出 LaTeX。",
+  },
+  en: {
+    appTitle: "Formula",
+    ebSymbols: "Symbols",
+    ebImage: "Image → Formula · AI",
+    ebLatex: "LaTeX source · two-way sync",
+    apiSettings: "⚙ API settings",
+    apiSettingsTitle: "Configure the LLM endpoint",
+    aiDropTitle: "Paste, or click to choose an image",
+    aiHint: "Paste a screenshot (Ctrl/⌘+V)<br />or click / drop an image",
+    aiUrlLabel: "API URL",
+    aiKeyLabel: "API Key",
+    aiModelLabel: "Model (must support vision)",
+    aiUrlPh: "https://api.openai.com/v1/chat/completions",
+    aiModelPh: "e.g. gpt-4o / glm-4v / qwen-vl-max",
+    aiSave: "Save",
+    aiNote: "Stored only in this browser; the image and key are sent to the endpoint you set.",
+    insert: "Insert into Word",
+    clear: "Clear",
+    inline: "Inline",
+    display: "Display",
+    numbered: "Numbered",
+    inlineTitle: "Inline equation: within the text line",
+    displayTitle: "Display equation: centered on its own line",
+    numberedTitle: "Numbered: centered line with a number on the right",
+    eqNumberPh: "Empty = auto-number (Word SEQ); or custom like (3.1)",
+    latexPh: "Type LaTeX here",
+    debugSummary: "Show converted OMML / MathML (debug)",
+    // dynamic
+    modeLinked: "Linked to an equation in the document — edits here sync back automatically.",
+    modeNew: "New equation (click an equation in the document to load it).",
+    emptyFormula: "The equation is empty — type something first.",
+    insertedLinked: "Inserted and linked; further edits here sync automatically.",
+    insertFail: "Insert failed: ",
+    syncedDoc: "Synced to the document.",
+    syncFail: "Sync failed: ",
+    loadedSel: "Loaded the selected equation; edit it directly (auto-sync).",
+    aiNeedCfg: "Fill in API URL, Key and Model under “API settings” first.",
+    aiBusy: "Recognizing… (calling the model)",
+    aiHttp: "Endpoint returned ",
+    aiNoFormula: "No formula recognized — try a clearer image with only the formula.",
+    aiDone: "Done — loaded into the editor; edit and click “Insert into Word”.",
+    aiReqFail: "Request failed: ",
+    aiReqFailHint: " (often CORS not allowed by the endpoint, or a network/URL issue)",
+    aiSaved: "Settings saved. You can now paste/drop an image to recognize.",
+    readImgFail: "Failed to read the image",
+    parseImgFail: "Failed to decode the image",
+    procImgFail: "Failed to process the image.",
+    startReady: "Ready. Create a new equation, or click an equation in the document to edit it.",
+    startNonWord: "(Not in Word) The editor works, but inserting/syncing only works inside Word.",
+    loadingEditor: "Loading the equation editor…",
+    officeUnavailable: "Office.js did not load, so the Word add-in can't initialize. Check your network and reopen the task pane.",
+    officeWaiting: "Waiting for Office to initialize; if it stalls, Office.js or the Word WebView is usually slow to start.",
+    mathSlow: "The equation editor is slow to load (usually MathLive CDN download/registration). Please wait; if it stays, check your network or refresh the task pane.",
+    aiSysPrompt:
+      "You are a math OCR engine. Convert the math in the image to LaTeX. " +
+      "Output only the LaTeX itself — no $ delimiters, no code fences, no explanation.",
+    aiUserPrompt: "Recognize the math formula in the image and output only LaTeX.",
+  },
+};
+
+// 分类名 / 悬停提示的英文（不改动 SYMBOL_CATEGORIES 数据本身）
+const CAT_EN = ["Common", "Operators", "Relations", "Arrows", "Large operators", "Sets & Logic", "Greek", "Other"];
+const TIP_EN = {
+  "分数": "Fraction", "平方根": "Square root", "n 次根": "nth root",
+  "上标": "Superscript", "下标": "Subscript", "上下标": "Sub & superscript",
+  "圆括号": "Parentheses", "方括号": "Brackets", "花括号": "Braces",
+  "绝对值": "Absolute value", "范数": "Norm", "向下取整": "Floor", "向上取整": "Ceiling",
+  "二项式系数": "Binomial coefficient", "矩阵": "Matrix", "分段函数": "Piecewise (cases)",
+  "向量": "Vector", "有向线段 / 长向量": "Directed segment / long vector",
+  "上划线": "Overline", "下划线": "Underline", "帽（estimate）": "Hat (estimate)",
+  "波浪号": "Tilde", "一阶导（点）": "First derivative (dot)", "二阶导（双点）": "Second derivative (double dot)",
+  "上花括（标注）": "Overbrace (annotation)", "下花括（标注）": "Underbrace (annotation)",
+  "定义为": "Defined as", "可逆 / 平衡": "Reversible / equilibrium",
+  "求和": "Summation", "连乘": "Product", "余积": "Coproduct", "积分": "Integral",
+  "二重积分": "Double integral", "三重积分": "Triple integral", "环路积分": "Contour integral",
+  "并": "Union", "交": "Intersection", "不交并": "Disjoint union",
+  "析取": "Disjunction (OR)", "合取": "Conjunction (AND)",
+  "极限": "Limit", "上极限": "Limit superior", "下极限": "Limit inferior",
+  "最大值": "Maximum", "最小值": "Minimum", "上确界": "Supremum", "下确界": "Infimum",
+  "补集": "Complement", "真": "True", "假": "False",
+  "自然数集": "Natural numbers", "整数集": "Integers", "有理数集": "Rationals",
+  "实数集": "Reals", "复数集": "Complex numbers",
+  "偏导": "Partial derivative", "梯度算子": "Gradient (nabla)", "无穷": "Infinity",
+  "撇号": "Prime", "角": "Angle", "度": "Degree",
+  "居中省略号": "Centered ellipsis", "底部省略号": "Baseline ellipsis",
+  "竖向省略号": "Vertical ellipsis", "斜向省略号": "Diagonal ellipsis", "证毕": "QED",
+};
+
+const T = (key) => (I18N[lang] && I18N[lang][key] != null ? I18N[lang][key] : key);
+const catLabel = (idx) => (lang === "en" ? CAT_EN[idx] : SYMBOL_CATEGORIES[idx].name);
+const tipText = (zh) => (lang === "en" ? TIP_EN[zh] || zh : zh);
+
+function applyI18n() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const v = I18N[lang][el.dataset.i18n];
+    if (v != null) el.textContent = v;
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach((el) => {
+    const v = I18N[lang][el.dataset.i18nHtml];
+    if (v != null) el.innerHTML = v;
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
+    const v = I18N[lang][el.dataset.i18nPh];
+    if (v != null) el.placeholder = v;
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    const v = I18N[lang][el.dataset.i18nTitle];
+    if (v != null) el.title = v;
+  });
+  document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
+  const lb = $("langBtn");
+  if (lb) lb.textContent = lang === "zh" ? "EN" : "中";
+  refreshPaletteLang();
+  if (modeLine) setMode(linked); // 模式徽章按当前连接状态重译
+}
+
+function refreshPaletteLang() {
+  const tabs = $("catTabs");
+  if (!tabs) return;
+  tabs.querySelectorAll("button[data-cat]").forEach((b) => {
+    b.textContent = catLabel(Number(b.dataset.cat));
+  });
+  const active = tabs.querySelector("button.active");
+  showPaletteCat(active ? Number(active.dataset.cat) : 0);
+}
+
+function setLang(l) {
+  lang = l === "en" ? "en" : "zh";
+  try { localStorage.setItem("gmath.lang", lang); } catch { /* ignore */ }
+  applyI18n();
+}
+
 let mathfield, latexEl, statusEl, debugEl, insertBtn, layoutModeEl, eqNumberEl, eqNumberRow, modeLine;
 
 // 同步状态机
@@ -331,11 +529,11 @@ function writeStartupDebug(prefix = "") {
 function setMode(isLinked) {
   linked = isLinked;
   if (isLinked) {
-    modeLine.textContent = "已连接文档中的公式 —— 在此修改会自动同步回去";
+    modeLine.textContent = T("modeLinked");
     modeLine.classList.add("linked");
   } else {
     loadedLatex = null;
-    modeLine.textContent = "新建公式（点选文档里的公式可载入编辑）";
+    modeLine.textContent = T("modeNew");
     modeLine.classList.remove("linked");
   }
 }
@@ -413,7 +611,7 @@ function renderSymButton(it) {
   const b = document.createElement("button");
   b.type = "button";
   b.dataset.insert = it.i;
-  if (it.t) b.title = it.t;
+  if (it.t) b.title = tipText(it.t);
   b.textContent = it.l;
   return b;
 }
@@ -433,7 +631,7 @@ function renderPalette() {
   SYMBOL_CATEGORIES.forEach((cat, idx) => {
     const t = document.createElement("button");
     t.type = "button";
-    t.textContent = cat.name;
+    t.textContent = catLabel(idx);
     t.dataset.cat = String(idx);
     if (idx === 0) t.classList.add("active");
     tabs.appendChild(t);
@@ -453,6 +651,7 @@ function renderPalette() {
 // 符号速选是纯 DOM，模块加载即渲染，立即可见可切换（此刻 MathLive 可能未就绪，
 // 先用文本回退；待 wireUp 中 MathLive 确认就绪后再重渲染为真实公式预览）。
 renderPalette();
+applyI18n(); // 按记忆的语言完成首次本地化（含分类标签）
 
 // 当前选中的版式：inline / display / numbered
 function getLayout() {
@@ -481,7 +680,7 @@ function loadIntoPane(latex, display) {
 async function insertNew() {
   const omml = currentOmml();
   if (!omml) {
-    setStatus("公式为空，请先输入内容。", "err");
+    setStatus(T("emptyFormula"), "err");
     return;
   }
   const flatOpc = buildFlatOpc(omml, getLayout(), eqNumberEl.value);
@@ -495,9 +694,9 @@ async function insertNew() {
     });
     loadedLatex = mathfield.getValue("latex");
     setMode(true);
-    setStatus("已插入并连接该公式，之后在面板里改会自动同步。", "ok");
+    setStatus(T("insertedLinked"), "ok");
   } catch (e) {
-    setStatus("插入失败：" + (e.code || "") + " " + (e.message || e), "err");
+    setStatus(T("insertFail") + (e.code || "") + " " + (e.message || e), "err");
     debugEl.value += "\n\n=== 错误详情 ===\n" + JSON.stringify(describeError(e), null, 2);
   } finally {
     setTimeout(() => (applying = false), 500);
@@ -518,9 +717,9 @@ async function syncToDoc() {
       await context.sync();
     });
     loadedLatex = mathfield.getValue("latex");
-    setStatus("已同步到文档。", "ok");
+    setStatus(T("syncedDoc"), "ok");
   } catch (e) {
-    setStatus("同步失败：" + (e.code || "") + " " + (e.message || e), "err");
+    setStatus(T("syncFail") + (e.code || "") + " " + (e.message || e), "err");
   } finally {
     setTimeout(() => (applying = false), 500);
   }
@@ -558,7 +757,7 @@ async function readFromSelection() {
     loadIntoPane(latex, /oMathPara/.test(omath));
     loadedLatex = latex;
     setMode(true);
-    setStatus("已载入选中的公式，可直接修改（自动同步）。", "ok");
+    setStatus(T("loadedSel"), "ok");
   } catch (e) {
     debugEl.value = "[选区读取] " + (e.message || e) + "\n" + debugEl.value;
   }
@@ -607,10 +806,10 @@ function cleanLatex(raw) {
 function fileToDataUrl(file, maxSide = 1600) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("读取图片失败"));
+    reader.onerror = () => reject(new Error(T("readImgFail")));
     reader.onload = () => {
       const img = new Image();
-      img.onerror = () => reject(new Error("图片解析失败"));
+      img.onerror = () => reject(new Error(T("parseImgFail")));
       img.onload = () => {
         const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
         if (scale === 1) return resolve(reader.result);
@@ -631,11 +830,11 @@ async function recognizeImage(dataUrl) {
   const key = $("aiKey").value.trim();
   const model = $("aiModel").value.trim();
   if (!url || !key || !model) {
-    setAiStatus("请先在「接口设置」里填写 API 地址、Key 和模型。", "err");
+    setAiStatus(T("aiNeedCfg"), "err");
     $("aiSettings").hidden = false;
     return;
   }
-  setAiStatus("识别中…（正在调用大模型）", "busy");
+  setAiStatus(T("aiBusy"), "busy");
   try {
     const resp = await fetch(normalizeEndpoint(url), {
       method: "POST",
@@ -644,16 +843,11 @@ async function recognizeImage(dataUrl) {
         model,
         temperature: 0,
         messages: [
-          {
-            role: "system",
-            content:
-              "你是数学公式 OCR。把图片中的数学公式转成 LaTeX，只输出 LaTeX 本身，" +
-              "不要 $ 定界符、不要代码块、不要任何解释或多余文字。",
-          },
+          { role: "system", content: T("aiSysPrompt") },
           {
             role: "user",
             content: [
-              { type: "text", text: "识别图片中的数学公式，只输出 LaTeX。" },
+              { type: "text", text: T("aiUserPrompt") },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
           },
@@ -662,7 +856,7 @@ async function recognizeImage(dataUrl) {
     });
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
-      setAiStatus(`接口返回 ${resp.status}：${body.slice(0, 200)}`, "err");
+      setAiStatus(`${T("aiHttp")}${resp.status}: ${body.slice(0, 200)}`, "err");
       return;
     }
     const data = await resp.json();
@@ -672,16 +866,16 @@ async function recognizeImage(dataUrl) {
       : Array.isArray(content) ? content.map((c) => c?.text || "").join("") : "";
     const latex = cleanLatex(text);
     if (!latex) {
-      setAiStatus("没识别出公式，换一张更清晰、只含公式的图片再试。", "err");
+      setAiStatus(T("aiNoFormula"), "err");
       return;
     }
     mathfield.setValue(latex);
     latexEl.value = mathfield.getValue("latex");
     setMode(false); // 作为新公式载入，等用户确认后再插入
     mathfield.focus();
-    setAiStatus("识别完成，已载入编辑器，可修改后点「插入到 Word」。", "ok");
+    setAiStatus(T("aiDone"), "ok");
   } catch (e) {
-    setAiStatus(`请求失败：${e.message || e}（常见原因：接口不允许跨域 CORS，或网络/地址有误）`, "err");
+    setAiStatus(`${T("aiReqFail")}${e.message || e}${T("aiReqFailHint")}`, "err");
   }
 }
 
@@ -695,7 +889,7 @@ async function handleImageFile(file) {
     $("aiHint").hidden = true;
     await recognizeImage(dataUrl);
   } catch (e) {
-    setAiStatus(e.message || "处理图片失败。", "err");
+    setAiStatus(e.message || T("procImgFail"), "err");
   }
 }
 
@@ -719,7 +913,7 @@ function wireAI() {
     lsSet(AI_KEYS.url, urlEl.value.trim());
     lsSet(AI_KEYS.key, keyEl.value.trim());
     lsSet(AI_KEYS.model, modelEl.value.trim());
-    setAiStatus("已保存接口设置。现在可以粘贴/拖入图片识别了。", "ok");
+    setAiStatus(T("aiSaved"), "ok");
     $("aiSettings").hidden = true;
   });
 
@@ -803,6 +997,8 @@ function wireUp(inWord) {
   insertBtn.addEventListener("click", insertNew);
   insertBtn.disabled = false;
 
+  $("langBtn").addEventListener("click", () => setLang(lang === "zh" ? "en" : "zh"));
+
   wireAI();
 
   if (inWord) {
@@ -820,10 +1016,7 @@ function waitForMathField() {
   const timeoutMs = 8000;
   const warning = setTimeout(() => {
     bootMark("math-field wait exceeded " + timeoutMs + " ms");
-    setStartupStatus(
-      "公式编辑器加载较慢，通常是 MathLive CDN 下载或注册耗时。请稍候；若长期不变，请检查网络或刷新任务面板。",
-      "err"
-    );
+    setStartupStatus(T("mathSlow"), "err");
     writeStartupDebug("启动阶段仍在等待 <math-field> 注册。");
   }, timeoutMs);
 
@@ -835,19 +1028,19 @@ function waitForMathField() {
 
 if (!window.Office || !Office.onReady) {
   bootMark("office.js unavailable");
-  setStartupStatus("Office.js 未加载，无法初始化 Word 加载项。请检查网络后重新打开任务面板。", "err");
+  setStartupStatus(T("officeUnavailable"), "err");
   writeStartupDebug();
 } else {
   const officeReadyWarning = setTimeout(() => {
     bootMark("office ready wait exceeded 8000 ms");
-    setStartupStatus("正在等待 Office 初始化，若长期不变通常是 Office.js 或 Word WebView 启动较慢。", "err");
+    setStartupStatus(T("officeWaiting"), "err");
     writeStartupDebug();
   }, 8000);
 
   Office.onReady((info) => {
     clearTimeout(officeReadyWarning);
     bootMark("office ready");
-    setStartupStatus("正在加载公式编辑器…");
+    setStartupStatus(T("loadingEditor"));
     return waitForMathField().then(() => start(info));
   });
 }
@@ -855,6 +1048,6 @@ if (!window.Office || !Office.onReady) {
 function start(info) {
   const inWord = info.host === Office.HostType.Word;
   wireUp(inWord);
-  if (inWord) setStatus("就绪（版本 " + BUILD + "）。新建公式，或点选文档里的公式来编辑。", "ok");
-  else setStatus("（非 Word 环境）编辑器可用，但只有在 Word 中才能插入/同步。");
+  if (inWord) setStatus(T("startReady"), "ok");
+  else setStatus(T("startNonWord"));
 }
