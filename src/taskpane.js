@@ -10,7 +10,7 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-10-c";
+const BUILD = "2026-06-10-d";
 
 // XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
 const escXml = (s) =>
@@ -564,6 +564,196 @@ async function readFromSelection() {
   }
 }
 
+// ===== 图片转公式（AI 识别，OpenAI 兼容视觉接口） =====
+const AI_KEYS = { url: "gmath.ai.url", key: "gmath.ai.key", model: "gmath.ai.model" };
+
+function lsGet(k) {
+  try { return localStorage.getItem(k) || ""; } catch { return ""; }
+}
+function lsSet(k, v) {
+  try { localStorage.setItem(k, v); } catch { /* 某些 WebView 禁用 localStorage */ }
+}
+
+function setAiStatus(msg, kind = "") {
+  const el = $("aiStatus");
+  if (!el) return;
+  el.hidden = !msg;
+  el.textContent = msg || "";
+  el.className = "ai-status" + (kind ? " " + kind : "");
+}
+
+// 把接口地址规整成 chat/completions 端点
+function normalizeEndpoint(url) {
+  let u = url.trim().replace(/\/+$/, "");
+  if (/\/chat\/completions$/.test(u)) return u;
+  if (/\/v\d+$/.test(u)) return u + "/chat/completions";
+  return u + "/v1/chat/completions";
+}
+
+// 清洗模型返回：去掉代码块围栏与 $ / \[ \] / \( \) 定界符
+function cleanLatex(raw) {
+  let s = (raw || "").trim();
+  s = s.replace(/^```(?:latex|tex|math)?\s*/i, "").replace(/\s*```$/, "").trim();
+  s = s
+    .replace(/^\$\$([\s\S]*?)\$\$$/, "$1")
+    .replace(/^\\\[([\s\S]*?)\\\]$/, "$1")
+    .replace(/^\\\(([\s\S]*?)\\\)$/, "$1")
+    .replace(/^\$([\s\S]*?)\$$/, "$1")
+    .trim();
+  return s;
+}
+
+// 读取图片文件 → 压缩到最长边 ≤1600 的 dataURL（减小体积/费用，PNG 保边缘清晰）
+function fileToDataUrl(file, maxSide = 1600) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取图片失败"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("图片解析失败"));
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        if (scale === 1) return resolve(reader.result);
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function recognizeImage(dataUrl) {
+  const url = $("aiUrl").value.trim();
+  const key = $("aiKey").value.trim();
+  const model = $("aiModel").value.trim();
+  if (!url || !key || !model) {
+    setAiStatus("请先在「接口设置」里填写 API 地址、Key 和模型。", "err");
+    $("aiSettings").hidden = false;
+    return;
+  }
+  setAiStatus("识别中…（正在调用大模型）", "busy");
+  try {
+    const resp = await fetch(normalizeEndpoint(url), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content:
+              "你是数学公式 OCR。把图片中的数学公式转成 LaTeX，只输出 LaTeX 本身，" +
+              "不要 $ 定界符、不要代码块、不要任何解释或多余文字。",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "识别图片中的数学公式，只输出 LaTeX。" },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      setAiStatus(`接口返回 ${resp.status}：${body.slice(0, 200)}`, "err");
+      return;
+    }
+    const data = await resp.json();
+    const content = data?.choices?.[0]?.message?.content;
+    const text = typeof content === "string"
+      ? content
+      : Array.isArray(content) ? content.map((c) => c?.text || "").join("") : "";
+    const latex = cleanLatex(text);
+    if (!latex) {
+      setAiStatus("没识别出公式，换一张更清晰、只含公式的图片再试。", "err");
+      return;
+    }
+    mathfield.setValue(latex);
+    latexEl.value = mathfield.getValue("latex");
+    setMode(false); // 作为新公式载入，等用户确认后再插入
+    mathfield.focus();
+    setAiStatus("识别完成，已载入编辑器，可修改后点「插入到 Word」。", "ok");
+  } catch (e) {
+    setAiStatus(`请求失败：${e.message || e}（常见原因：接口不允许跨域 CORS，或网络/地址有误）`, "err");
+  }
+}
+
+async function handleImageFile(file) {
+  if (!file || !file.type || !file.type.startsWith("image/")) return;
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const thumb = $("aiThumb");
+    thumb.src = dataUrl;
+    thumb.hidden = false;
+    $("aiHint").hidden = true;
+    await recognizeImage(dataUrl);
+  } catch (e) {
+    setAiStatus(e.message || "处理图片失败。", "err");
+  }
+}
+
+function wireAI() {
+  const urlEl = $("aiUrl");
+  const keyEl = $("aiKey");
+  const modelEl = $("aiModel");
+  const drop = $("aiDrop");
+  const fileEl = $("aiFile");
+
+  // 载入已保存的配置
+  urlEl.value = lsGet(AI_KEYS.url);
+  keyEl.value = lsGet(AI_KEYS.key);
+  modelEl.value = lsGet(AI_KEYS.model);
+
+  $("aiSettingsBtn").addEventListener("click", () => {
+    const s = $("aiSettings");
+    s.hidden = !s.hidden;
+  });
+  $("aiSaveBtn").addEventListener("click", () => {
+    lsSet(AI_KEYS.url, urlEl.value.trim());
+    lsSet(AI_KEYS.key, keyEl.value.trim());
+    lsSet(AI_KEYS.model, modelEl.value.trim());
+    setAiStatus("已保存接口设置。现在可以粘贴/拖入图片识别了。", "ok");
+    $("aiSettings").hidden = true;
+  });
+
+  // 点击 / 拖拽 / 选择文件
+  drop.addEventListener("click", () => fileEl.click());
+  drop.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileEl.click(); }
+  });
+  fileEl.addEventListener("change", () => {
+    if (fileEl.files && fileEl.files[0]) handleImageFile(fileEl.files[0]);
+    fileEl.value = "";
+  });
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("drag");
+    const f = e.dataTransfer?.files?.[0];
+    if (f) handleImageFile(f);
+  });
+
+  // 全局粘贴：剪贴板里有图片就拦下来识别（不影响在输入框里粘贴文本）
+  document.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const it of items) {
+      if (it.type && it.type.startsWith("image/")) {
+        const f = it.getAsFile();
+        if (f) { e.preventDefault(); handleImageFile(f); return; }
+      }
+    }
+  });
+}
+
 function wireUp(inWord) {
   bootMark("wireUp start");
   mathfield = $("mathfield");
@@ -612,6 +802,8 @@ function wireUp(inWord) {
 
   insertBtn.addEventListener("click", insertNew);
   insertBtn.disabled = false;
+
+  wireAI();
 
   if (inWord) {
     Office.context.document.addHandlerAsync(

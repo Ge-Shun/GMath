@@ -224,6 +224,118 @@
     }
     .sym-grid button:active { transform: translateY(0); }
 
+    /* ===== 图片转公式（AI 识别） ===== */
+    /* 小节标签里的「接口设置」按钮 */
+    .eyebrow-btn {
+      flex: none;
+      font-family: var(--sans);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: none;
+      color: var(--blue-deep);
+      background: var(--blue-tint);
+      border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+      border-radius: 7px;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: background .12s ease, border-color .12s ease;
+    }
+    .eyebrow-btn:hover { background: color-mix(in srgb, var(--blue) 16%, var(--paper-2)); }
+    /* 让标签里有按钮时，分隔线仍在最右 */
+    .eyebrow:has(.eyebrow-btn)::after { order: 1; }
+    .eyebrow:has(.eyebrow-btn) .eyebrow-btn { order: 2; }
+
+    .ai { margin-bottom: 16px; }
+    /* 类选择器设了 display 会盖过 [hidden]，需显式复位 */
+    .ai-settings[hidden], .ai-hint[hidden] { display: none; }
+    .ai-drop {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 88px;
+      padding: 12px;
+      text-align: center;
+      background: var(--paper-2);
+      border: 1.5px dashed color-mix(in srgb, var(--blue) 35%, var(--line));
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .ai-drop:hover, .ai-drop:focus-visible, .ai-drop.drag {
+      outline: none;
+      border-color: var(--blue);
+      background: var(--blue-tint);
+    }
+    .ai-hint {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      color: var(--muted); font-size: 12.5px; line-height: 1.45;
+    }
+    .ai-cam { font-size: 22px; filter: grayscale(.2); }
+    .ai-thumb {
+      max-width: 100%; max-height: 180px;
+      border-radius: 8px; object-fit: contain;
+      box-shadow: 0 2px 8px -2px rgba(21,33,58,.25);
+    }
+
+    .ai-status {
+      margin-top: 9px;
+      padding: 9px 11px;
+      border-radius: 9px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      background: var(--line-soft);
+      color: var(--muted);
+      border: 1px solid var(--line);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .ai-status.ok  { background: var(--green-tint); color: var(--green); border-color: color-mix(in srgb, var(--green) 26%, transparent); }
+    .ai-status.err { background: var(--red-tint); color: var(--red); border-color: color-mix(in srgb, var(--red) 26%, transparent); }
+    .ai-status.busy { background: var(--blue-tint); color: var(--blue-deep); border-color: color-mix(in srgb, var(--blue) 26%, transparent); }
+
+    .ai-settings {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding: 12px;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .ai-settings label {
+      display: flex; flex-direction: column; gap: 4px;
+      font-size: 11.5px; font-weight: 600; color: var(--ink-soft);
+    }
+    .ai-settings input {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 400;
+      color: var(--ink);
+      padding: 8px 10px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .ai-settings input:focus {
+      outline: none; border-color: var(--blue);
+      box-shadow: 0 0 0 3px var(--blue-tint);
+    }
+    .ai-settings input::placeholder { color: var(--muted); }
+    .ai-srow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .ai-srow button {
+      font-size: 13px; font-weight: 600;
+      padding: 8px 16px; border-radius: 8px; border: 1px solid transparent;
+      color: #fff; cursor: pointer;
+      background: linear-gradient(165deg, var(--blue), var(--blue-deep));
+      box-shadow: 0 3px 10px -4px rgba(22,104,196,.5);
+    }
+    .ai-srow button:hover { transform: translateY(-1px); }
+    .ai-note { font-size: 11px; color: var(--muted); flex: 1; min-width: 140px; }
+
     /* ===== 公式编辑卡 ===== */
     .field-card {
       position: relative;
@@ -480,6 +592,39 @@
   <div class="palette reveal" id="palette">
     <div class="cat-tabs" id="catTabs"></div>
     <div class="sym-grid" id="symGrid"></div>
+  </div>
+
+  <p class="eyebrow reveal">图片转公式 · AI 识别
+    <button type="button" id="aiSettingsBtn" class="eyebrow-btn" title="配置大模型接口">⚙ 接口设置</button>
+  </p>
+  <div class="ai reveal">
+    <div class="ai-drop" id="aiDrop" tabindex="0" title="粘贴或点击选择图片">
+      <input type="file" id="aiFile" accept="image/*" hidden />
+      <div class="ai-hint" id="aiHint">
+        <span class="ai-cam">📷</span>
+        <span>粘贴截图（Ctrl/⌘+V）<br />或点击 / 拖入图片</span>
+      </div>
+      <img id="aiThumb" class="ai-thumb" hidden alt="待识别图片" />
+    </div>
+    <div class="ai-status" id="aiStatus" hidden></div>
+
+    <div class="ai-settings" id="aiSettings" hidden>
+      <label>API 地址
+        <input type="text" id="aiUrl" spellcheck="false"
+               placeholder="https://api.openai.com/v1/chat/completions" />
+      </label>
+      <label>API Key
+        <input type="password" id="aiKey" spellcheck="false" placeholder="sk-..." />
+      </label>
+      <label>模型（需支持图片/视觉）
+        <input type="text" id="aiModel" spellcheck="false"
+               placeholder="如 gpt-4o / glm-4v / qwen-vl-max" />
+      </label>
+      <div class="ai-srow">
+        <button type="button" id="aiSaveBtn">保存设置</button>
+        <span class="ai-note">仅存于本机浏览器；识别时把图片与 Key 发送到你填写的接口。</span>
+      </div>
+    </div>
   </div>
 
   <div class="field-card reveal">
