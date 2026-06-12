@@ -220,6 +220,10 @@
       border: 1px solid var(--line);
       border-radius: 10px;
     }
+    .sym-grid[hidden] { display: none; }
+    .sym-grid.common {
+      grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+    }
     .sym-grid button {
       font-family: var(--display);
       background: var(--paper-2);
@@ -236,6 +240,144 @@
       justify-content: center;
       transition: transform .1s ease, border-color .1s ease, box-shadow .1s ease, color .1s ease;
     }
+    .sym-grid button.template {
+      height: 58px;
+      flex-direction: column;
+      gap: 2px;
+      padding: 5px;
+    }
+    .sym-main {
+      font-family: var(--display);
+      font-size: 17px;
+      line-height: 1;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: visible;
+    }
+    .sym-main sup,
+    .sym-main sub {
+      font-size: .7em;
+      line-height: 0;
+    }
+    .sym-frac,
+    .sym-stack {
+      display: inline-grid;
+      grid-template-rows: 1fr 1fr;
+      align-items: center;
+      justify-items: center;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .sym-frac {
+      min-width: 18px;
+      gap: 0;
+      font-size: .86em;
+      line-height: .82;
+    }
+    .sym-frac span { line-height: .82; }
+    .sym-frac span:first-child {
+      width: 100%;
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 1px;
+    }
+    .sym-subonly {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 1px;
+      line-height: 1;
+    }
+    .sym-subonly sub {
+      display: block;
+      font-size: .68em;
+      line-height: .9;
+      transform: translateY(1px);
+    }
+    .sym-stack {
+      font-size: .78em;
+      gap: 0;
+      margin: 0 1px;
+    }
+    .sym-subsup {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+    }
+    .sym-subsup > span:last-child {
+      display: inline-grid;
+      grid-template-rows: auto auto;
+      align-items: center;
+      justify-items: start;
+      gap: 1px;
+      line-height: 1;
+    }
+    .sym-subsup sup,
+    .sym-subsup sub {
+      display: block;
+      font-size: .68em;
+      line-height: .9;
+    }
+    .sym-brace {
+      display: inline-grid;
+      grid-template-rows: auto auto;
+      align-items: center;
+      justify-items: center;
+      gap: 0;
+      font-size: .9em;
+      line-height: .78;
+    }
+    .sym-brace span { line-height: .78; }
+    .sym-brace.over span:first-child,
+    .sym-brace.under span:last-child {
+      transform: scaleX(1.7);
+      transform-origin: center;
+      font-size: .82em;
+    }
+    .sym-accent {
+      display: inline-grid;
+      grid-template-rows: auto auto;
+      justify-items: center;
+      align-items: center;
+      gap: 0;
+      line-height: 1;
+      min-width: 14px;
+    }
+    .sym-accent.wide { min-width: 22px; }
+    .sym-accent-mark {
+      font-size: .86em;
+      line-height: .6;
+      transform: translateY(1px);
+    }
+    .sym-accent > span:last-child {
+      display: block;
+      line-height: 1.08;
+      padding-bottom: 1px;
+    }
+    .sym-accent-mark.arrow {
+      width: 100%;
+      transform: translateY(1px) scaleX(1.35);
+      transform-origin: center;
+    }
+    .sym-overline,
+    .sym-underline {
+      display: inline-block;
+      line-height: 1;
+      padding: 1px 1px 0;
+    }
+    .sym-overline { border-top: 1px solid currentColor; }
+    .sym-underline { border-bottom: 1px solid currentColor; }
+    .sym-desc {
+      font-family: var(--sans);
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 1.2;
+      min-height: 12px;
+      color: var(--muted);
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: visible;
+      text-overflow: ellipsis;
+    }
+    .sym-grid button.template:hover .sym-desc { color: var(--blue); }
     .sym-grid button:hover {
       border-color: var(--blue);
       color: var(--blue);
@@ -685,7 +827,7 @@
 
   <script
     type="module"
-    src="./taskpane.js?v=2026-06-12-ai-proxy"
+    src="./taskpane.js?v=2026-06-12-accent-insert-fix"
     onload="window.__gmathMark && window.__gmathMark('taskpane module loaded')"
     onerror="window.__gmathMark && window.__gmathMark('taskpane module failed')"
   ></script>

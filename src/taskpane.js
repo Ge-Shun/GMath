@@ -10,7 +10,7 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-12-ai-proxy";
+const BUILD = "2026-06-12-accent-insert-fix";
 
 // XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
 const escXml = (s) =>
@@ -22,32 +22,32 @@ const SYMBOL_CATEGORIES = [
   {
     name: "常用",
     items: [
-      { l: "a/b", i: "\\frac{#0}{#0}", t: "分数" },
-      { l: "√", i: "\\sqrt{#0}", t: "平方根" },
-      { l: "ⁿ√", i: "\\sqrt[#0]{#0}", t: "n 次根" },
-      { l: "xⁿ", i: "x^{#0}", t: "上标" },
-      { l: "xₙ", i: "x_{#0}", t: "下标" },
-      { l: "xⁿₘ", i: "x_{#0}^{#0}", t: "上下标" },
-      { l: "( )", i: "\\left(#0\\right)", t: "圆括号" },
-      { l: "[ ]", i: "\\left[#0\\right]", t: "方括号" },
-      { l: "{ }", i: "\\left\\{#0\\right\\}", t: "花括号" },
-      { l: "|x|", i: "\\left|#0\\right|", t: "绝对值" },
-      { l: "‖x‖", i: "\\left\\|#0\\right\\|", t: "范数" },
-      { l: "⌊x⌋", i: "\\left\\lfloor #0\\right\\rfloor", t: "向下取整" },
-      { l: "⌈x⌉", i: "\\left\\lceil #0\\right\\rceil", t: "向上取整" },
-      { l: "(ⁿₖ)", i: "\\binom{#0}{#0}", t: "二项式系数" },
-      { l: "[▦]", i: "\\begin{pmatrix}#0\\end{pmatrix}", t: "矩阵" },
-      { l: "{·", i: "\\begin{cases}#0\\end{cases}", t: "分段函数" },
-      { l: "x⃗", i: "\\vec{#0}", t: "向量" },
-      { l: "AB⃗", i: "\\overrightarrow{#0}", t: "有向线段 / 长向量" },
-      { l: "x̄", i: "\\overline{#0}", t: "上划线" },
-      { l: "x̲", i: "\\underline{#0}", t: "下划线" },
-      { l: "x̂", i: "\\hat{#0}", t: "帽（estimate）" },
-      { l: "x̃", i: "\\tilde{#0}", t: "波浪号" },
-      { l: "ẋ", i: "\\dot{#0}", t: "一阶导（点）" },
-      { l: "ẍ", i: "\\ddot{#0}", t: "二阶导（双点）" },
-      { l: "⏞", i: "\\overbrace{#0}", t: "上花括（标注）" },
-      { l: "⏟", i: "\\underbrace{#0}", t: "下花括（标注）" },
+      { l: "□/□", m: "<span class=\"sym-frac\"><span>□</span><span>□</span></span>", d: "分数", i: "\\frac{#0}{#0}", t: "分数" },
+      { l: "√□", d: "平方根", i: "\\sqrt{#0}", t: "平方根" },
+      { l: "ⁿ√□", m: "<sup>n</sup>√□", d: "n 次根", i: "\\sqrt[#0]{#0}", t: "n 次根" },
+      { l: "x^□", m: "x<sup>□</sup>", d: "上标", i: "x^{#0}", t: "上标" },
+      { l: "x_□", m: "<span class=\"sym-subonly\"><span>x</span><sub>□</sub></span>", d: "下标", i: "x_{#0}", t: "下标" },
+      { l: "x_□^□", m: "<span class=\"sym-subsup\"><span>x</span><span><sup>□</sup><sub>□</sub></span></span>", d: "上下标", i: "x_{#0}^{#0}", t: "上下标" },
+      { l: "(□)", d: "圆括号", i: "\\left(#0\\right)", t: "圆括号" },
+      { l: "[□]", d: "方括号", i: "\\left[#0\\right]", t: "方括号" },
+      { l: "{□}", d: "花括号", i: "\\left\\{#0\\right\\}", t: "花括号" },
+      { l: "|□|", d: "绝对值", i: "\\left|#0\\right|", t: "绝对值" },
+      { l: "‖□‖", d: "范数", i: "\\left\\|#0\\right\\|", t: "范数" },
+      { l: "⌊□⌋", d: "向下取整", i: "\\left\\lfloor #0\\right\\rfloor", t: "向下取整" },
+      { l: "⌈□⌉", d: "向上取整", i: "\\left\\lceil #0\\right\\rceil", t: "向上取整" },
+      { l: "(□□)", m: "(<span class=\"sym-stack\"><span>□</span><span>□</span></span>)", d: "二项式", i: "\\binom{#0}{#0}", t: "二项式系数" },
+      { l: "▦", d: "矩阵", i: "\\begin{pmatrix}#0\\end{pmatrix}", t: "矩阵" },
+      { l: "{□", d: "分段", i: "\\begin{cases}#0\\end{cases}", t: "分段函数" },
+      { l: "x⃗", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark arrow\">→</span><span>x</span></span>", d: "向量", i: "\\vec{x}", t: "向量" },
+      { l: "AB⃗", m: "<span class=\"sym-accent wide\"><span class=\"sym-accent-mark arrow\">→</span><span>AB</span></span>", d: "长向量", i: "\\overrightarrow{AB}", t: "有向线段 / 长向量" },
+      { l: "x̄", m: "<span class=\"sym-overline\">x</span>", d: "上划线", i: "\\overline{x}", t: "上划线" },
+      { l: "x̲", m: "<span class=\"sym-underline\">x</span>", d: "下划线", i: "\\underline{x}", t: "下划线" },
+      { l: "x̂", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">ˆ</span><span>x</span></span>", d: "帽", i: "\\hat{x}", t: "帽（estimate）" },
+      { l: "x̃", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">˜</span><span>x</span></span>", d: "波浪号", i: "\\tilde{x}", t: "波浪号" },
+      { l: "ẋ", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">˙</span><span>x</span></span>", d: "一阶导", i: "\\dot{x}", t: "一阶导（点）" },
+      { l: "ẍ", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">¨</span><span>x</span></span>", d: "二阶导", i: "\\ddot{x}", t: "二阶导（双点）" },
+      { l: "⏞□", m: "<span class=\"sym-brace over\"><span>⏞</span><span>□</span></span>", d: "上花括", i: "\\overbrace{#0}", t: "上花括（标注）" },
+      { l: "⏟□", m: "<span class=\"sym-brace under\"><span>□</span><span>⏟</span></span>", d: "下花括", i: "\\underbrace{#0}", t: "下花括（标注）" },
     ],
   },
   {
@@ -348,7 +348,7 @@ const I18N = {
     aiNoFormula: "没识别出公式，换一张更清晰、只含公式的图片再试。",
     aiDone: "识别完成，已载入编辑器，可修改后点「插入到 Word」。",
     aiReqFail: "请求失败：",
-    aiReqFailHint: "（常见原因：本地代理未运行、网络/地址有误，或当前不是从 localhost 打开的任务窗格）",
+    aiReqFailHint: "（常见原因：接口不允许浏览器跨域 CORS，或网络/API 地址有误。可临时运行 npm run serve 使用本地代理兜底。）",
     aiSaved: "已保存接口设置。现在可以粘贴/拖入图片识别了。",
     readImgFail: "读取图片失败",
     parseImgFail: "图片解析失败",
@@ -406,7 +406,7 @@ const I18N = {
     aiNoFormula: "No formula recognized — try a clearer image with only the formula.",
     aiDone: "Done — loaded into the editor; edit and click “Insert into Word”.",
     aiReqFail: "Request failed: ",
-    aiReqFailHint: " (often the local proxy is not running, the URL/network is wrong, or the task pane is not loaded from localhost)",
+    aiReqFailHint: " (often the endpoint blocks browser CORS, or the API URL/network is wrong. Run npm run serve temporarily to use the local proxy fallback.)",
     aiSaved: "Settings saved. You can now paste/drop an image to recognize.",
     readImgFail: "Failed to read the image",
     parseImgFail: "Failed to decode the image",
@@ -487,7 +487,7 @@ function refreshPaletteLang() {
     b.textContent = catLabel(Number(b.dataset.cat));
   });
   const active = tabs.querySelector("button.active");
-  showPaletteCat(active ? Number(active.dataset.cat) : 0);
+  if (active) showPaletteCat(Number(active.dataset.cat));
 }
 
 function setLang(l) {
@@ -607,12 +607,26 @@ function buildFlatOpc(ommlMath, layout, numberText) {
 const describeError = (e) => ({ code: e.code, message: e.message, debugInfo: e.debugInfo });
 
 // 单个符号/模板按钮：文本标签 l + 点击插入模板 i（#0 → 插入后的光标占位）
-function renderSymButton(it) {
+function renderSymButton(it, catIdx) {
   const b = document.createElement("button");
   b.type = "button";
   b.dataset.insert = it.i;
-  if (it.t) b.title = tipText(it.t);
-  b.textContent = it.l;
+  const title = it.t ? tipText(it.t) : it.i;
+  b.title = title;
+  b.setAttribute("aria-label", title);
+  if (catIdx === 0 && it.d) {
+    b.className = "template";
+    const main = document.createElement("span");
+    main.className = "sym-main";
+    if (it.m) main.innerHTML = it.m;
+    else main.textContent = it.l;
+    const desc = document.createElement("span");
+    desc.className = "sym-desc";
+    desc.textContent = tipText(it.d);
+    b.append(main, desc);
+  } else {
+    b.textContent = it.l;
+  }
   return b;
 }
 
@@ -620,7 +634,16 @@ function showPaletteCat(idx) {
   const grid = $("symGrid");
   if (!grid) return;
   grid.innerHTML = "";
-  SYMBOL_CATEGORIES[idx].items.forEach((it) => grid.appendChild(renderSymButton(it)));
+  grid.hidden = false;
+  grid.classList.toggle("common", idx === 0);
+  SYMBOL_CATEGORIES[idx].items.forEach((it) => grid.appendChild(renderSymButton(it, idx)));
+}
+
+function collapsePalette() {
+  const grid = $("symGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  grid.hidden = true;
 }
 
 // 渲染分类符号速选：上方分类标签，点选某类后在下方展开该类符号
@@ -640,11 +663,21 @@ function renderPalette() {
   tabs.addEventListener("click", (ev) => {
     const t = ev.target.closest("button[data-cat]");
     if (!t) return;
-    tabs.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+    const isOpen = t.classList.contains("active");
+    tabs.querySelectorAll("button").forEach((b) => {
+      b.classList.remove("active");
+      b.setAttribute("aria-expanded", "false");
+    });
+    if (isOpen) {
+      collapsePalette();
+      return;
+    }
     t.classList.add("active");
+    t.setAttribute("aria-expanded", "true");
     showPaletteCat(Number(t.dataset.cat));
   });
 
+  tabs.querySelector("button[data-cat='0']")?.setAttribute("aria-expanded", "true");
   showPaletteCat(0);
 }
 
@@ -789,12 +822,41 @@ function normalizeEndpoint(url) {
   return u + "/v1/chat/completions";
 }
 
-function isLocalTaskpane() {
-  return ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+function aiRequestUrl() {
+  if (["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname)) {
+    return "/api/ai/chat/completions";
+  }
+  return "https://localhost:3000/api/ai/chat/completions";
 }
 
-function aiRequestUrl() {
-  return isLocalTaskpane() ? "/api/ai/chat/completions" : normalizeEndpoint($("aiUrl").value);
+function aiPayload(model, dataUrl) {
+  return JSON.stringify({
+    model,
+    temperature: 0,
+    messages: [
+      { role: "system", content: T("aiSysPrompt") },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: T("aiUserPrompt") },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      },
+    ],
+  });
+}
+
+async function postAi(endpoint, key, body, useProxy) {
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: "Bearer " + key,
+  };
+  if (useProxy) headers["X-GMath-AI-Endpoint"] = endpoint;
+  return fetch(useProxy ? aiRequestUrl() : endpoint, {
+    method: "POST",
+    headers,
+    body,
+  });
 }
 
 // 清洗模型返回：去掉代码块围栏与 $ / \[ \] / \( \) 定界符
@@ -845,30 +907,15 @@ async function recognizeImage(dataUrl) {
   setAiStatus(T("aiBusy"), "busy");
   try {
     const endpoint = normalizeEndpoint(url);
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + key,
-    };
-    if (isLocalTaskpane()) headers["X-GMath-AI-Endpoint"] = endpoint;
-
-    const resp = await fetch(aiRequestUrl(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        messages: [
-          { role: "system", content: T("aiSysPrompt") },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: T("aiUserPrompt") },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
-          },
-        ],
-      }),
-    });
+    const body = aiPayload(model, dataUrl);
+    let resp;
+    try {
+      resp = await postAi(endpoint, key, body, false);
+    } catch (directErr) {
+      resp = await postAi(endpoint, key, body, true).catch(() => {
+        throw directErr;
+      });
+    }
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
       setAiStatus(`${T("aiHttp")}${resp.status}: ${body.slice(0, 200)}`, "err");

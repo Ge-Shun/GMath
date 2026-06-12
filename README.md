@@ -46,6 +46,12 @@ npm run sideload:mac
 
 Restart Word completely. You should see **GMath** on the **Home** tab.
 
+By default, sideloading uses the GitHub Pages task pane, so opening the add-in UI does not require a local server to keep running. For local page development, use:
+
+```bash
+npm run sideload:mac:local
+```
+
 ## Use GMath
 
 1. Open Word.
@@ -66,12 +72,13 @@ When running locally, `npm run serve` also starts a same-origin proxy:
 https://localhost:3000/api/ai/chat/completions
 ```
 
-The task pane sends the request to this local proxy first, then Node forwards it to the API URL you entered. This avoids the common `Load failed` case caused by third-party endpoints not allowing browser CORS requests.
+The task pane first calls the API URL directly. If the endpoint does not allow browser CORS requests, temporarily run `npm run serve`; the task pane will fall back to the local proxy, and Node will forward the request to the API URL you entered.
+
+GMath does not install a persistent background service. If you are not using image recognition, no local service needs to be running.
 
 If it still shows `Load failed`, check that:
 
-- `npm run serve` is still running.
-- The Word task pane URL is `https://localhost:3000/src/taskpane.html`. `npm run sideload:mac` rewrites the sideloaded manifest to use the local task pane URL.
+- If the endpoint blocks CORS, `npm run serve` is running temporarily.
 - The API URL is an OpenAI-compatible endpoint, such as `https://api.openai.com/v1/chat/completions` or just `/v1`.
 - The model supports image/vision input.
 

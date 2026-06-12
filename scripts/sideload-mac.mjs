@@ -13,16 +13,25 @@ const targetDir = path.join(
 const target = path.join(targetDir, "manifest.xml");
 const port = process.env.PORT || "3000";
 const localTaskpaneUrl = `https://localhost:${port}/src/taskpane.html`;
+const mode = process.env.GMATH_TASKPANE || "hosted";
 
 let manifest = fs.readFileSync(source, "utf8");
-manifest = manifest.replace(
-  /https:\/\/ge-shun\.github\.io\/GMath\/src\/taskpane\.html/g,
-  localTaskpaneUrl,
-);
+if (mode === "local") {
+  manifest = manifest.replace(
+    /https:\/\/ge-shun\.github\.io\/GMath\/src\/taskpane\.html/g,
+    localTaskpaneUrl,
+  );
+}
 
 fs.mkdirSync(targetDir, { recursive: true });
 fs.writeFileSync(target, manifest);
 
-console.log(`已复制本地开发 manifest 到 Word：${target}`);
-console.log(`任务窗格地址：${localTaskpaneUrl}`);
-console.log("请保持 npm run serve 运行，然后完全退出并重新打开 Word。");
+console.log(`已复制 manifest 到 Word：${target}`);
+if (mode === "local") {
+  console.log(`任务窗格地址：${localTaskpaneUrl}`);
+  console.log("本地开发模式需要 localhost 服务运行；可手动运行 npm run serve，或运行 npm run proxy:install:mac 安装自启动。");
+  console.log("然后完全退出并重新打开 Word。");
+} else {
+  console.log("任务窗格地址：https://ge-shun.github.io/GMath/src/taskpane.html");
+  console.log("主界面不依赖本地服务；图片转公式会先直连接口，遇到 CORS 时可临时运行 npm run serve 使用本地代理。");
+}

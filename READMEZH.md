@@ -46,6 +46,12 @@ npm run sideload:mac
 
 完全退出并重新打开 Word。随后应能在 **开始** 选项卡中看到 **GMath**。
 
+默认旁加载使用 GitHub Pages 任务窗格，因此打开插件主界面不需要保持本地服务运行。如果要开发本地页面，可改用：
+
+```bash
+npm run sideload:mac:local
+```
+
 ## 使用方法
 
 1. 打开 Word。
@@ -66,12 +72,13 @@ npm run sideload:mac
 https://localhost:3000/api/ai/chat/completions
 ```
 
-任务窗格会把请求先发到这个本机代理，再由 Node 转发到你填写的 API 地址。这样可以避开很多第三方接口不允许浏览器跨域请求（CORS）导致的 `Load failed`。
+任务窗格会先直接请求你填写的 API 地址。若接口不允许浏览器跨域请求（CORS），可临时运行 `npm run serve`，任务窗格会回退到本机代理，再由 Node 转发到你填写的 API 地址。
+
+GMath 不安装后台常驻服务；不需要图片识别时，不需要运行本地服务。
 
 如果仍然提示 `Load failed`，请检查：
 
-- `npm run serve` 是否仍在运行。
-- Word 任务窗格地址是否是 `https://localhost:3000/src/taskpane.html`。运行 `npm run sideload:mac` 会把旁加载清单中的任务窗格地址改成本地地址。
+- 如果接口不允许 CORS，是否已临时运行 `npm run serve`。
 - API 地址是否填写为服务商的 OpenAI 兼容地址，例如 `https://api.openai.com/v1/chat/completions` 或只到 `/v1`。
 - 模型是否支持图片/视觉输入。
 
