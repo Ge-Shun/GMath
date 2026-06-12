@@ -5,8 +5,8 @@
   "description": "Word 加载项：可视化编辑并插入原生可编辑公式，替代 MathType。",
   "scripts": {
     "dev-certs": "office-addin-dev-certs install",
-    "serve": "http-server . -p 3000 -S -C \"$HOME/.office-addin-dev-certs/localhost.crt\" -K \"$HOME/.office-addin-dev-certs/localhost.key\" --cors -c-1",
-    "sideload:mac": "mkdir -p \"$HOME/Library/Containers/com.microsoft.Word/Data/Documents/wef\" && cp manifest.xml \"$HOME/Library/Containers/com.microsoft.Word/Data/Documents/wef/\" && echo '已复制 manifest 到 Word 的 wef 目录，重启 Word 后在「开始」选项卡找到 GMath。'",
+    "serve": "node scripts/serve.mjs",
+    "sideload:mac": "node scripts/sideload-mac.mjs",
     "validate": "office-addin-manifest validate manifest.xml",
     "test": "node test/render-test.mjs"
   },

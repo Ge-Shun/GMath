@@ -56,6 +56,25 @@ npm run sideload:mac
 
 公式会作为 Word 原生公式插入文档，之后仍可继续编辑。
 
+## 图片转公式
+
+图片转公式会调用你在 **接口设置** 中填写的 OpenAI 兼容视觉模型接口。
+
+本地运行时，`npm run serve` 会同时启动一个同源代理：
+
+```text
+https://localhost:3000/api/ai/chat/completions
+```
+
+任务窗格会把请求先发到这个本机代理，再由 Node 转发到你填写的 API 地址。这样可以避开很多第三方接口不允许浏览器跨域请求（CORS）导致的 `Load failed`。
+
+如果仍然提示 `Load failed`，请检查：
+
+- `npm run serve` 是否仍在运行。
+- Word 任务窗格地址是否是 `https://localhost:3000/src/taskpane.html`。运行 `npm run sideload:mac` 会把旁加载清单中的任务窗格地址改成本地地址。
+- API 地址是否填写为服务商的 OpenAI 兼容地址，例如 `https://api.openai.com/v1/chat/completions` 或只到 `/v1`。
+- 模型是否支持图片/视觉输入。
+
 ## 常见问题
 
 如果 Word 中没有出现加载项，请重新运行 `npm run sideload:mac`，然后完全重启 Word。

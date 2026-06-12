@@ -10,7 +10,7 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-10-e";
+const BUILD = "2026-06-12-ai-proxy";
 
 // XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
 const escXml = (s) =>
@@ -348,7 +348,7 @@ const I18N = {
     aiNoFormula: "没识别出公式，换一张更清晰、只含公式的图片再试。",
     aiDone: "识别完成，已载入编辑器，可修改后点「插入到 Word」。",
     aiReqFail: "请求失败：",
-    aiReqFailHint: "（常见原因：接口不允许跨域 CORS，或网络/地址有误）",
+    aiReqFailHint: "（常见原因：本地代理未运行、网络/地址有误，或当前不是从 localhost 打开的任务窗格）",
     aiSaved: "已保存接口设置。现在可以粘贴/拖入图片识别了。",
     readImgFail: "读取图片失败",
     parseImgFail: "图片解析失败",
@@ -406,7 +406,7 @@ const I18N = {
     aiNoFormula: "No formula recognized — try a clearer image with only the formula.",
     aiDone: "Done — loaded into the editor; edit and click “Insert into Word”.",
     aiReqFail: "Request failed: ",
-    aiReqFailHint: " (often CORS not allowed by the endpoint, or a network/URL issue)",
+    aiReqFailHint: " (often the local proxy is not running, the URL/network is wrong, or the task pane is not loaded from localhost)",
     aiSaved: "Settings saved. You can now paste/drop an image to recognize.",
     readImgFail: "Failed to read the image",
     parseImgFail: "Failed to decode the image",
@@ -789,6 +789,14 @@ function normalizeEndpoint(url) {
   return u + "/v1/chat/completions";
 }
 
+function isLocalTaskpane() {
+  return ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+}
+
+function aiRequestUrl() {
+  return isLocalTaskpane() ? "/api/ai/chat/completions" : normalizeEndpoint($("aiUrl").value);
+}
+
 // 清洗模型返回：去掉代码块围栏与 $ / \[ \] / \( \) 定界符
 function cleanLatex(raw) {
   let s = (raw || "").trim();
@@ -836,9 +844,16 @@ async function recognizeImage(dataUrl) {
   }
   setAiStatus(T("aiBusy"), "busy");
   try {
-    const resp = await fetch(normalizeEndpoint(url), {
+    const endpoint = normalizeEndpoint(url);
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + key,
+    };
+    if (isLocalTaskpane()) headers["X-GMath-AI-Endpoint"] = endpoint;
+
+    const resp = await fetch(aiRequestUrl(), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      headers,
       body: JSON.stringify({
         model,
         temperature: 0,
