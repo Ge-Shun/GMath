@@ -72,27 +72,15 @@ npm run sideload:mac:local
 https://localhost:3000/api/ai/chat/completions
 ```
 
-任务窗格会把请求先发到这个本机代理，再由 Node 转发到你填写的 API 地址。这样可以避开很多第三方接口不允许浏览器跨域请求（CORS）导致的 `Load failed`。
+任务窗格会先直接请求你填写的 API 地址。若接口不允许浏览器跨域请求（CORS），可临时运行 `npm run serve`，任务窗格会回退到本机代理，再由 Node 转发到你填写的 API 地址。
 
-在 macOS 上可以安装本地代理自启动：
-
-```bash
-npm run proxy:install:mac
-```
-
-安装后，代理会在登录 macOS 时自动启动并保持运行。插件主界面仍从 GitHub Pages 打开；只有图片转公式会使用本机代理。
+GMath 不安装后台常驻服务；不需要图片识别时，不需要运行本地服务。
 
 如果仍然提示 `Load failed`，请检查：
 
-- 本地代理是否运行。可手动运行 `npm run serve`，或运行 `npm run proxy:install:mac` 安装自启动。
+- 如果接口不允许 CORS，是否已临时运行 `npm run serve`。
 - API 地址是否填写为服务商的 OpenAI 兼容地址，例如 `https://api.openai.com/v1/chat/completions` 或只到 `/v1`。
 - 模型是否支持图片/视觉输入。
-
-如果要移除本地代理自启动：
-
-```bash
-npm run proxy:uninstall:mac
-```
 
 ## 常见问题
 

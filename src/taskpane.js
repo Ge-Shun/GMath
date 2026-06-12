@@ -10,7 +10,7 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-12-ai-proxy-autostart";
+const BUILD = "2026-06-12-ai-direct-proxy-fallback";
 
 // XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
 const escXml = (s) =>
@@ -348,7 +348,7 @@ const I18N = {
     aiNoFormula: "没识别出公式，换一张更清晰、只含公式的图片再试。",
     aiDone: "识别完成，已载入编辑器，可修改后点「插入到 Word」。",
     aiReqFail: "请求失败：",
-    aiReqFailHint: "（常见原因：本地 AI 代理未运行，或网络/API 地址有误。可运行 npm run proxy:install:mac 安装自启动代理。）",
+    aiReqFailHint: "（常见原因：接口不允许浏览器跨域 CORS，或网络/API 地址有误。可临时运行 npm run serve 使用本地代理兜底。）",
     aiSaved: "已保存接口设置。现在可以粘贴/拖入图片识别了。",
     readImgFail: "读取图片失败",
     parseImgFail: "图片解析失败",
@@ -406,7 +406,7 @@ const I18N = {
     aiNoFormula: "No formula recognized — try a clearer image with only the formula.",
     aiDone: "Done — loaded into the editor; edit and click “Insert into Word”.",
     aiReqFail: "Request failed: ",
-    aiReqFailHint: " (often the local AI proxy is not running, or the API URL/network is wrong. Run npm run proxy:install:mac to install the auto-start proxy.)",
+    aiReqFailHint: " (often the endpoint blocks browser CORS, or the API URL/network is wrong. Run npm run serve temporarily to use the local proxy fallback.)",
     aiSaved: "Settings saved. You can now paste/drop an image to recognize.",
     readImgFail: "Failed to read the image",
     parseImgFail: "Failed to decode the image",
@@ -796,6 +796,36 @@ function aiRequestUrl() {
   return "https://localhost:3000/api/ai/chat/completions";
 }
 
+function aiPayload(model, dataUrl) {
+  return JSON.stringify({
+    model,
+    temperature: 0,
+    messages: [
+      { role: "system", content: T("aiSysPrompt") },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: T("aiUserPrompt") },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      },
+    ],
+  });
+}
+
+async function postAi(endpoint, key, body, useProxy) {
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: "Bearer " + key,
+  };
+  if (useProxy) headers["X-GMath-AI-Endpoint"] = endpoint;
+  return fetch(useProxy ? aiRequestUrl() : endpoint, {
+    method: "POST",
+    headers,
+    body,
+  });
+}
+
 // 清洗模型返回：去掉代码块围栏与 $ / \[ \] / \( \) 定界符
 function cleanLatex(raw) {
   let s = (raw || "").trim();
@@ -844,30 +874,15 @@ async function recognizeImage(dataUrl) {
   setAiStatus(T("aiBusy"), "busy");
   try {
     const endpoint = normalizeEndpoint(url);
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + key,
-    };
-    headers["X-GMath-AI-Endpoint"] = endpoint;
-
-    const resp = await fetch(aiRequestUrl(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        messages: [
-          { role: "system", content: T("aiSysPrompt") },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: T("aiUserPrompt") },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
-          },
-        ],
-      }),
-    });
+    const body = aiPayload(model, dataUrl);
+    let resp;
+    try {
+      resp = await postAi(endpoint, key, body, false);
+    } catch (directErr) {
+      resp = await postAi(endpoint, key, body, true).catch(() => {
+        throw directErr;
+      });
+    }
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
       setAiStatus(`${T("aiHttp")}${resp.status}: ${body.slice(0, 200)}`, "err");

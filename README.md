@@ -72,27 +72,15 @@ When running locally, `npm run serve` also starts a same-origin proxy:
 https://localhost:3000/api/ai/chat/completions
 ```
 
-The task pane sends the request to this local proxy first, then Node forwards it to the API URL you entered. This avoids the common `Load failed` case caused by third-party endpoints not allowing browser CORS requests.
+The task pane first calls the API URL directly. If the endpoint does not allow browser CORS requests, temporarily run `npm run serve`; the task pane will fall back to the local proxy, and Node will forward the request to the API URL you entered.
 
-On macOS, install the local proxy as a login-time background service:
-
-```bash
-npm run proxy:install:mac
-```
-
-After installation, the proxy starts automatically when you log in to macOS and is kept running. The main add-in UI still opens from GitHub Pages; only image recognition uses the local proxy.
+GMath does not install a persistent background service. If you are not using image recognition, no local service needs to be running.
 
 If it still shows `Load failed`, check that:
 
-- The local proxy is running. You can start it manually with `npm run serve`, or install it with `npm run proxy:install:mac`.
+- If the endpoint blocks CORS, `npm run serve` is running temporarily.
 - The API URL is an OpenAI-compatible endpoint, such as `https://api.openai.com/v1/chat/completions` or just `/v1`.
 - The model supports image/vision input.
-
-To remove the local proxy auto-start service:
-
-```bash
-npm run proxy:uninstall:mac
-```
 
 ## Troubleshooting
 

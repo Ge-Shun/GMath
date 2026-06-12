@@ -33,5 +33,5 @@ if (mode === "local") {
   console.log("然后完全退出并重新打开 Word。");
 } else {
   console.log("任务窗格地址：https://ge-shun.github.io/GMath/src/taskpane.html");
-  console.log("主界面不依赖本地服务；图片转公式需要本地代理，可运行 npm run proxy:install:mac 安装自启动。");
+  console.log("主界面不依赖本地服务；图片转公式会先直连接口，遇到 CORS 时可临时运行 npm run serve 使用本地代理。");
 }
