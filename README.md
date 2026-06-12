@@ -56,6 +56,25 @@ Restart Word completely. You should see **GMath** on the **Home** tab.
 
 The equation will be inserted as a native Word equation and can be edited later in Word.
 
+## Image To Formula
+
+Image recognition calls the OpenAI-compatible vision endpoint configured under **API settings**.
+
+When running locally, `npm run serve` also starts a same-origin proxy:
+
+```text
+https://localhost:3000/api/ai/chat/completions
+```
+
+The task pane sends the request to this local proxy first, then Node forwards it to the API URL you entered. This avoids the common `Load failed` case caused by third-party endpoints not allowing browser CORS requests.
+
+If it still shows `Load failed`, check that:
+
+- `npm run serve` is still running.
+- The Word task pane URL is `https://localhost:3000/src/taskpane.html`. `npm run sideload:mac` rewrites the sideloaded manifest to use the local task pane URL.
+- The API URL is an OpenAI-compatible endpoint, such as `https://api.openai.com/v1/chat/completions` or just `/v1`.
+- The model supports image/vision input.
+
 ## Troubleshooting
 
 If the add-in does not appear, run `npm run sideload:mac` again and restart Word.
