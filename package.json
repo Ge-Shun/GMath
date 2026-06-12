@@ -7,6 +7,9 @@
     "dev-certs": "office-addin-dev-certs install",
     "serve": "node scripts/serve.mjs",
     "sideload:mac": "node scripts/sideload-mac.mjs",
+    "sideload:mac:local": "GMATH_TASKPANE=local node scripts/sideload-mac.mjs",
+    "proxy:install:mac": "node scripts/install-proxy-autostart-mac.mjs",
+    "proxy:uninstall:mac": "node scripts/uninstall-proxy-autostart-mac.mjs",
     "validate": "office-addin-manifest validate manifest.xml",
     "test": "node test/render-test.mjs"
   },
