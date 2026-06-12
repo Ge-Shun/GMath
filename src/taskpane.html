@@ -241,9 +241,9 @@
       transition: transform .1s ease, border-color .1s ease, box-shadow .1s ease, color .1s ease;
     }
     .sym-grid button.template {
-      height: 54px;
+      height: 58px;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
       padding: 5px;
     }
     .sym-main {
@@ -338,14 +338,19 @@
       justify-items: center;
       align-items: center;
       gap: 0;
-      line-height: .86;
+      line-height: 1;
       min-width: 14px;
     }
     .sym-accent.wide { min-width: 22px; }
     .sym-accent-mark {
       font-size: .86em;
-      line-height: .75;
+      line-height: .6;
       transform: translateY(1px);
+    }
+    .sym-accent > span:last-child {
+      display: block;
+      line-height: 1.08;
+      padding-bottom: 1px;
     }
     .sym-accent-mark.arrow {
       width: 100%;
@@ -364,11 +369,12 @@
       font-family: var(--sans);
       font-size: 10.5px;
       font-weight: 600;
-      line-height: 1.1;
+      line-height: 1.2;
+      min-height: 12px;
       color: var(--muted);
       max-width: 100%;
       white-space: nowrap;
-      overflow: hidden;
+      overflow: visible;
       text-overflow: ellipsis;
     }
     .sym-grid button.template:hover .sym-desc { color: var(--blue); }
@@ -821,7 +827,7 @@
 
   <script
     type="module"
-    src="./taskpane.js?v=2026-06-12-symbol-preview-fix"
+    src="./taskpane.js?v=2026-06-12-accent-preview-fix"
     onload="window.__gmathMark && window.__gmathMark('taskpane module loaded')"
     onerror="window.__gmathMark && window.__gmathMark('taskpane module failed')"
   ></script>
