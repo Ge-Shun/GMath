@@ -10,7 +10,7 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-12-palette-toggle";
+const BUILD = "2026-06-12-symbol-preview-fix";
 
 // XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
 const escXml = (s) =>
@@ -26,7 +26,7 @@ const SYMBOL_CATEGORIES = [
       { l: "√□", d: "平方根", i: "\\sqrt{#0}", t: "平方根" },
       { l: "ⁿ√□", m: "<sup>n</sup>√□", d: "n 次根", i: "\\sqrt[#0]{#0}", t: "n 次根" },
       { l: "x^□", m: "x<sup>□</sup>", d: "上标", i: "x^{#0}", t: "上标" },
-      { l: "x_□", m: "x<sub>□</sub>", d: "下标", i: "x_{#0}", t: "下标" },
+      { l: "x_□", m: "<span class=\"sym-subonly\"><span>x</span><sub>□</sub></span>", d: "下标", i: "x_{#0}", t: "下标" },
       { l: "x_□^□", m: "<span class=\"sym-subsup\"><span>x</span><span><sup>□</sup><sub>□</sub></span></span>", d: "上下标", i: "x_{#0}^{#0}", t: "上下标" },
       { l: "(□)", d: "圆括号", i: "\\left(#0\\right)", t: "圆括号" },
       { l: "[□]", d: "方括号", i: "\\left[#0\\right]", t: "方括号" },
@@ -38,14 +38,14 @@ const SYMBOL_CATEGORIES = [
       { l: "(□□)", m: "(<span class=\"sym-stack\"><span>□</span><span>□</span></span>)", d: "二项式", i: "\\binom{#0}{#0}", t: "二项式系数" },
       { l: "▦", d: "矩阵", i: "\\begin{pmatrix}#0\\end{pmatrix}", t: "矩阵" },
       { l: "{□", d: "分段", i: "\\begin{cases}#0\\end{cases}", t: "分段函数" },
-      { l: "x⃗", d: "向量", i: "\\vec{#0}", t: "向量" },
-      { l: "AB⃗", d: "长向量", i: "\\overrightarrow{#0}", t: "有向线段 / 长向量" },
-      { l: "x̄", d: "上划线", i: "\\overline{#0}", t: "上划线" },
-      { l: "x̲", d: "下划线", i: "\\underline{#0}", t: "下划线" },
-      { l: "x̂", d: "帽", i: "\\hat{#0}", t: "帽（estimate）" },
-      { l: "x̃", d: "波浪号", i: "\\tilde{#0}", t: "波浪号" },
-      { l: "ẋ", d: "一阶导", i: "\\dot{#0}", t: "一阶导（点）" },
-      { l: "ẍ", d: "二阶导", i: "\\ddot{#0}", t: "二阶导（双点）" },
+      { l: "x⃗", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark arrow\">→</span><span>x</span></span>", d: "向量", i: "\\vec{#0}", t: "向量" },
+      { l: "AB⃗", m: "<span class=\"sym-accent wide\"><span class=\"sym-accent-mark arrow\">→</span><span>AB</span></span>", d: "长向量", i: "\\overrightarrow{#0}", t: "有向线段 / 长向量" },
+      { l: "x̄", m: "<span class=\"sym-overline\">x</span>", d: "上划线", i: "\\overline{#0}", t: "上划线" },
+      { l: "x̲", m: "<span class=\"sym-underline\">x</span>", d: "下划线", i: "\\underline{#0}", t: "下划线" },
+      { l: "x̂", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">ˆ</span><span>x</span></span>", d: "帽", i: "\\hat{#0}", t: "帽（estimate）" },
+      { l: "x̃", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">˜</span><span>x</span></span>", d: "波浪号", i: "\\tilde{#0}", t: "波浪号" },
+      { l: "ẋ", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">˙</span><span>x</span></span>", d: "一阶导", i: "\\dot{#0}", t: "一阶导（点）" },
+      { l: "ẍ", m: "<span class=\"sym-accent\"><span class=\"sym-accent-mark\">¨</span><span>x</span></span>", d: "二阶导", i: "\\ddot{#0}", t: "二阶导（双点）" },
       { l: "⏞□", m: "<span class=\"sym-brace over\"><span>⏞</span><span>□</span></span>", d: "上花括", i: "\\overbrace{#0}", t: "上花括（标注）" },
       { l: "⏟□", m: "<span class=\"sym-brace under\"><span>□</span><span>⏟</span></span>", d: "下花括", i: "\\underbrace{#0}", t: "下花括（标注）" },
     ],
