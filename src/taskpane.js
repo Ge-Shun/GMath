@@ -10,7 +10,7 @@
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
 
-const BUILD = "2026-06-12-ai-direct-proxy-fallback";
+const BUILD = "2026-06-12-palette-toggle";
 
 // XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
 const escXml = (s) =>
@@ -22,32 +22,32 @@ const SYMBOL_CATEGORIES = [
   {
     name: "常用",
     items: [
-      { l: "a/b", i: "\\frac{#0}{#0}", t: "分数" },
-      { l: "√", i: "\\sqrt{#0}", t: "平方根" },
-      { l: "ⁿ√", i: "\\sqrt[#0]{#0}", t: "n 次根" },
-      { l: "xⁿ", i: "x^{#0}", t: "上标" },
-      { l: "xₙ", i: "x_{#0}", t: "下标" },
-      { l: "xⁿₘ", i: "x_{#0}^{#0}", t: "上下标" },
-      { l: "( )", i: "\\left(#0\\right)", t: "圆括号" },
-      { l: "[ ]", i: "\\left[#0\\right]", t: "方括号" },
-      { l: "{ }", i: "\\left\\{#0\\right\\}", t: "花括号" },
-      { l: "|x|", i: "\\left|#0\\right|", t: "绝对值" },
-      { l: "‖x‖", i: "\\left\\|#0\\right\\|", t: "范数" },
-      { l: "⌊x⌋", i: "\\left\\lfloor #0\\right\\rfloor", t: "向下取整" },
-      { l: "⌈x⌉", i: "\\left\\lceil #0\\right\\rceil", t: "向上取整" },
-      { l: "(ⁿₖ)", i: "\\binom{#0}{#0}", t: "二项式系数" },
-      { l: "[▦]", i: "\\begin{pmatrix}#0\\end{pmatrix}", t: "矩阵" },
-      { l: "{·", i: "\\begin{cases}#0\\end{cases}", t: "分段函数" },
-      { l: "x⃗", i: "\\vec{#0}", t: "向量" },
-      { l: "AB⃗", i: "\\overrightarrow{#0}", t: "有向线段 / 长向量" },
-      { l: "x̄", i: "\\overline{#0}", t: "上划线" },
-      { l: "x̲", i: "\\underline{#0}", t: "下划线" },
-      { l: "x̂", i: "\\hat{#0}", t: "帽（estimate）" },
-      { l: "x̃", i: "\\tilde{#0}", t: "波浪号" },
-      { l: "ẋ", i: "\\dot{#0}", t: "一阶导（点）" },
-      { l: "ẍ", i: "\\ddot{#0}", t: "二阶导（双点）" },
-      { l: "⏞", i: "\\overbrace{#0}", t: "上花括（标注）" },
-      { l: "⏟", i: "\\underbrace{#0}", t: "下花括（标注）" },
+      { l: "□/□", m: "<span class=\"sym-frac\"><span>□</span><span>□</span></span>", d: "分数", i: "\\frac{#0}{#0}", t: "分数" },
+      { l: "√□", d: "平方根", i: "\\sqrt{#0}", t: "平方根" },
+      { l: "ⁿ√□", m: "<sup>n</sup>√□", d: "n 次根", i: "\\sqrt[#0]{#0}", t: "n 次根" },
+      { l: "x^□", m: "x<sup>□</sup>", d: "上标", i: "x^{#0}", t: "上标" },
+      { l: "x_□", m: "x<sub>□</sub>", d: "下标", i: "x_{#0}", t: "下标" },
+      { l: "x_□^□", m: "x<sub>□</sub><sup>□</sup>", d: "上下标", i: "x_{#0}^{#0}", t: "上下标" },
+      { l: "(□)", d: "圆括号", i: "\\left(#0\\right)", t: "圆括号" },
+      { l: "[□]", d: "方括号", i: "\\left[#0\\right]", t: "方括号" },
+      { l: "{□}", d: "花括号", i: "\\left\\{#0\\right\\}", t: "花括号" },
+      { l: "|□|", d: "绝对值", i: "\\left|#0\\right|", t: "绝对值" },
+      { l: "‖□‖", d: "范数", i: "\\left\\|#0\\right\\|", t: "范数" },
+      { l: "⌊□⌋", d: "向下取整", i: "\\left\\lfloor #0\\right\\rfloor", t: "向下取整" },
+      { l: "⌈□⌉", d: "向上取整", i: "\\left\\lceil #0\\right\\rceil", t: "向上取整" },
+      { l: "(□□)", m: "(<span class=\"sym-stack\"><span>□</span><span>□</span></span>)", d: "二项式", i: "\\binom{#0}{#0}", t: "二项式系数" },
+      { l: "▦", d: "矩阵", i: "\\begin{pmatrix}#0\\end{pmatrix}", t: "矩阵" },
+      { l: "{□", d: "分段", i: "\\begin{cases}#0\\end{cases}", t: "分段函数" },
+      { l: "x⃗", d: "向量", i: "\\vec{#0}", t: "向量" },
+      { l: "AB⃗", d: "长向量", i: "\\overrightarrow{#0}", t: "有向线段 / 长向量" },
+      { l: "x̄", d: "上划线", i: "\\overline{#0}", t: "上划线" },
+      { l: "x̲", d: "下划线", i: "\\underline{#0}", t: "下划线" },
+      { l: "x̂", d: "帽", i: "\\hat{#0}", t: "帽（estimate）" },
+      { l: "x̃", d: "波浪号", i: "\\tilde{#0}", t: "波浪号" },
+      { l: "ẋ", d: "一阶导", i: "\\dot{#0}", t: "一阶导（点）" },
+      { l: "ẍ", d: "二阶导", i: "\\ddot{#0}", t: "二阶导（双点）" },
+      { l: "⏞□", d: "上花括", i: "\\overbrace{#0}", t: "上花括（标注）" },
+      { l: "⏟□", d: "下花括", i: "\\underbrace{#0}", t: "下花括（标注）" },
     ],
   },
   {
@@ -487,7 +487,7 @@ function refreshPaletteLang() {
     b.textContent = catLabel(Number(b.dataset.cat));
   });
   const active = tabs.querySelector("button.active");
-  showPaletteCat(active ? Number(active.dataset.cat) : 0);
+  if (active) showPaletteCat(Number(active.dataset.cat));
 }
 
 function setLang(l) {
@@ -607,12 +607,26 @@ function buildFlatOpc(ommlMath, layout, numberText) {
 const describeError = (e) => ({ code: e.code, message: e.message, debugInfo: e.debugInfo });
 
 // 单个符号/模板按钮：文本标签 l + 点击插入模板 i（#0 → 插入后的光标占位）
-function renderSymButton(it) {
+function renderSymButton(it, catIdx) {
   const b = document.createElement("button");
   b.type = "button";
   b.dataset.insert = it.i;
-  if (it.t) b.title = tipText(it.t);
-  b.textContent = it.l;
+  const title = it.t ? tipText(it.t) : it.i;
+  b.title = title;
+  b.setAttribute("aria-label", title);
+  if (catIdx === 0 && it.d) {
+    b.className = "template";
+    const main = document.createElement("span");
+    main.className = "sym-main";
+    if (it.m) main.innerHTML = it.m;
+    else main.textContent = it.l;
+    const desc = document.createElement("span");
+    desc.className = "sym-desc";
+    desc.textContent = tipText(it.d);
+    b.append(main, desc);
+  } else {
+    b.textContent = it.l;
+  }
   return b;
 }
 
@@ -620,7 +634,16 @@ function showPaletteCat(idx) {
   const grid = $("symGrid");
   if (!grid) return;
   grid.innerHTML = "";
-  SYMBOL_CATEGORIES[idx].items.forEach((it) => grid.appendChild(renderSymButton(it)));
+  grid.hidden = false;
+  grid.classList.toggle("common", idx === 0);
+  SYMBOL_CATEGORIES[idx].items.forEach((it) => grid.appendChild(renderSymButton(it, idx)));
+}
+
+function collapsePalette() {
+  const grid = $("symGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  grid.hidden = true;
 }
 
 // 渲染分类符号速选：上方分类标签，点选某类后在下方展开该类符号
@@ -640,11 +663,21 @@ function renderPalette() {
   tabs.addEventListener("click", (ev) => {
     const t = ev.target.closest("button[data-cat]");
     if (!t) return;
-    tabs.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+    const isOpen = t.classList.contains("active");
+    tabs.querySelectorAll("button").forEach((b) => {
+      b.classList.remove("active");
+      b.setAttribute("aria-expanded", "false");
+    });
+    if (isOpen) {
+      collapsePalette();
+      return;
+    }
     t.classList.add("active");
+    t.setAttribute("aria-expanded", "true");
     showPaletteCat(Number(t.dataset.cat));
   });
 
+  tabs.querySelector("button[data-cat='0']")?.setAttribute("aria-expanded", "true");
   showPaletteCat(0);
 }
 
