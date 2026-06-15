@@ -9,6 +9,7 @@
 
 import { mml2omml } from "./mathml2omml.js";
 import { omml2latex, extractOMath } from "./omml2latex.js";
+import { latexToOmml, hasDecoration } from "./latex2omml.js";
 
 const BUILD = "2026-06-12-common-desc-cache-bust";
 
@@ -541,6 +542,16 @@ function setMode(isLinked) {
 }
 
 function currentOmml() {
+  const latex = mathfield.getValue("latex");
+  // 含装饰命令（\overline/\overbrace 等 MathLive 序列化会丢内容的）走补丁层；
+  // 其余保持原 MathML 快路径，行为与旧版完全一致（零回归）。
+  if (hasDecoration(latex) && window.MathLive?.convertLatexToMathMl) {
+    const omml = latexToOmml(latex, {
+      convertLatexToMathMl: (s) => window.MathLive.convertLatexToMathMl(s),
+      mml2omml,
+    });
+    return omml && omml.trim() ? omml : null;
+  }
   const mathml = mathfield.getValue("math-ml");
   if (!mathml || !mathml.trim()) return null;
   return mml2omml(mathml);

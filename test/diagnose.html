@@ -12,7 +12,24 @@
   <script type="module">
     import { mml2omml } from "../src/mathml2omml.js";
     import { omml2latex } from "../src/omml2latex.js";
+    import { latexToOmml, hasDecoration } from "../src/latex2omml.js";
     window.__ready = false;
+
+    // 正向（补丁层）：LaTeX → OMML，处理 \overline/\overbrace 等 MathLive 丢内容的命令
+    window.__forward = function (latex) {
+      try {
+        const omml = latexToOmml(latex, {
+          convertLatexToMathMl: (s) => window.MathLive.convertLatexToMathMl(s),
+          mml2omml,
+        });
+        // 往返校验：再读回 LaTeX
+        let back = null, err = null;
+        try { back = omml2latex(omml); } catch (e) { err = String(e); }
+        return { latex, decorated: hasDecoration(latex), omml, back, err };
+      } catch (e) {
+        return { latex, err: String(e) };
+      }
+    };
 
     // 正向：LaTeX → (MathLive) MathML → (mml2omml) OMML
     window.__diagnose = function (latex) {

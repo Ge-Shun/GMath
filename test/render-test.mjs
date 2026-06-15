@@ -13,6 +13,7 @@ globalThis.XMLSerializer = XMLSerializer; // omml2mml.js 的 extractOMath 依赖
 
 const { mml2omml } = await import("../src/mathml2omml.js");
 const { omml2latex } = await import("../src/omml2latex.js");
+const { latexToOmml } = await import("../src/latex2omml.js");
 
 // MathLive 隐式乘法用的不可见字符
 const IT = "⁢"; // INVISIBLE TIMES
@@ -305,6 +306,54 @@ for (const c of reverseCases) {
 
 console.log("-".repeat(72));
 console.log(`反向专测 ${reverseCases.length} 项，累计通过 ${pass} 项。`);
+
+// 装饰命令补丁层（latex2omml）：MathLive 序列化会丢内容的 \overline/\overbrace 等，
+// 改用「PUA 占位 → MathLive 建结构 → OMML 回填」处理。Node 里没有 MathLive，用从
+// 真实 MathLive 抓来的 MathML 形状做 fake 注入，校验扫描/递归/回填逻辑（含嵌套）。
+const PUA0 = "";
+const FAKE_MATHML = {
+  [PUA0]: `<mi>${PUA0}</mi>`,
+  x: `<mi>x</mi>`,
+  // \frac{<PUA>}{2}：装饰占位落在分子，验证嵌在别的结构里也能回填
+  [`\\frac{${PUA0}}{2}`]: `<mfrac><mi>${PUA0}</mi><mn>2</mn></mfrac>`,
+};
+const fakeConvert = (s) => {
+  if (!(s in FAKE_MATHML)) throw new Error("fake 未覆盖的输入: " + JSON.stringify(s));
+  return FAKE_MATHML[s];
+};
+const decoCases = [
+  { name: "\\overline{x} → m:bar(top)", latex: "\\overline{x}", expect: [`<m:bar>`, `m:pos m:val="top"`], back: ["\\overline{x}"] },
+  { name: "\\overbrace{x} → m:groupChr", latex: "\\overbrace{x}", expect: [`<m:groupChr>`, `m:chr m:val="⏞"`], back: ["\\overbrace{x}"] },
+  { name: "嵌套 \\frac{\\overline{x}}{2}", latex: "\\frac{\\overline{x}}{2}", expect: [`<m:f>`, `<m:num><m:bar>`], back: ["\\frac{\\overline{x}}{2}"] },
+  { name: "双层 \\overline{\\overline{x}}", latex: "\\overline{\\overline{x}}", expect: [`<m:bar><m:barPr><m:pos m:val="top"/></m:barPr><m:e><m:bar>`], back: ["\\overline{\\overline{x}}"] },
+];
+
+console.log("\n装饰补丁层专测（latex2omml，MathLive 序列化丢内容的命令）：");
+for (const c of decoCases) {
+  const problems = [];
+  let omml = "";
+  try {
+    omml = latexToOmml(c.latex, { convertLatexToMathMl: fakeConvert, mml2omml });
+  } catch (e) {
+    problems.push("转换抛异常: " + e.message);
+  }
+  if (omml) {
+    if (!isWellFormed(omml)) problems.push("OMML 非合法 XML");
+    const decoded = decodeRefs(omml);
+    if (decoded.includes(PUA0)) problems.push("占位符未被回填（残留 PUA）");
+    for (const t of c.expect) if (!decoded.includes(t)) problems.push("缺少结构: " + JSON.stringify(t));
+    let backLatex = "";
+    try { backLatex = omml2latex(decoded); } catch (e) { problems.push("反向抛异常: " + e.message); }
+    for (const t of c.back || []) if (!backLatex.includes(t)) problems.push("往返丢失: " + JSON.stringify(t) + "（实得 " + JSON.stringify(backLatex) + "）");
+  }
+  const ok = problems.length === 0;
+  if (ok) pass++;
+  else fails.push({ name: c.name, problems, omml });
+  console.log(pad(c.name, 34), ok ? "✅ 通过" : "❌ 失败");
+}
+
+console.log("-".repeat(72));
+console.log(`装饰补丁层专测 ${decoCases.length} 项，累计通过 ${pass} 项。`);
 
 if (fails.length) {
   console.log("\n失败详情：");
