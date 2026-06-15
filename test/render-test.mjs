@@ -145,10 +145,22 @@ const cases = [
     forbid: [IT],
   },
   {
-    name: "向量 \\vec{v}（重音/上方箭头）",
+    name: "向量 \\vec{v}（重音）",
     latex: "\\vec{v}",
-    mathml: `<mover><mi>v</mi><mo stretchy="true">→</mo></mover>`,
-    expect: ["<m:limUpp>", "v"],
+    mathml: `<mover accent="true"><mi>v</mi><mo>⃗</mo></mover>`,
+    expect: ["<m:acc>", `m:chr m:val="⃗"`, "v"],
+  },
+  {
+    name: "帽 \\hat{x}（重音）",
+    latex: "\\hat{x}",
+    mathml: `<mover accent="true"><mi>x</mi><mo>^</mo></mover>`,
+    expect: ["<m:acc>", `m:chr m:val="̂"`],
+  },
+  {
+    name: "导数点 \\dot{x}（重音）",
+    latex: "\\dot{x}",
+    mathml: `<mover accent="true"><mi>x</mi><mo>˙</mo></mover>`,
+    expect: ["<m:acc>", `m:chr m:val="̇"`],
   },
   {
     name: "括号 mfenced",
@@ -208,7 +220,9 @@ const latexExpect = {
   "对齐公式组 aligned": ["\\begin{aligned}", "&", "\\\\", "\\end{aligned}"],
   "质能方程 E=mc^2": ["^"],
   一元二次求根公式: ["\\frac", "\\sqrt", "^", "\\pm"],
-  "向量 \\vec{v}（重音/上方箭头）": ["\\overset"],
+  "向量 \\vec{v}（重音）": ["\\vec"],
+  "帽 \\hat{x}（重音）": ["\\hat"],
+  "导数点 \\dot{x}（重音）": ["\\dot"],
 };
 
 let pass = 0;
@@ -259,6 +273,38 @@ for (const c of cases) {
 
 console.log("-".repeat(72));
 console.log(`合计 ${cases.length} 项，通过 ${pass} 项，失败 ${cases.length - pass} 项。`);
+
+// 反向专测：Word 原生公式里可能直接出现 m:bar / m:groupChr / m:acc（MathLive 正向
+// 不一定产出这些形状），单独验证「从文档读回」链路能正确还原成 LaTeX。
+const M = `xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"`;
+const reverseCases = [
+  { name: "m:acc → \\hat", omml: `<m:oMath ${M}><m:acc><m:accPr><m:chr m:val="̂"/></m:accPr><m:e><m:r><m:t>x</m:t></m:r></m:e></m:acc></m:oMath>`, expect: ["\\hat{x}"] },
+  { name: "m:bar(top) → \\overline", omml: `<m:oMath ${M}><m:bar><m:barPr><m:pos m:val="top"/></m:barPr><m:e><m:r><m:t>AB</m:t></m:r></m:e></m:bar></m:oMath>`, expect: ["\\overline{AB}"] },
+  { name: "m:bar(bot) → \\underline", omml: `<m:oMath ${M}><m:bar><m:barPr><m:pos m:val="bot"/></m:barPr><m:e><m:r><m:t>x</m:t></m:r></m:e></m:bar></m:oMath>`, expect: ["\\underline{x}"] },
+  { name: "m:groupChr(⏞) → \\overbrace", omml: `<m:oMath ${M}><m:groupChr><m:groupChrPr><m:chr m:val="⏞"/><m:pos m:val="top"/></m:groupChrPr><m:e><m:r><m:t>x</m:t></m:r></m:e></m:groupChr></m:oMath>`, expect: ["\\overbrace{x}"] },
+  { name: "m:groupChr(⏟) → \\underbrace", omml: `<m:oMath ${M}><m:groupChr><m:groupChrPr><m:chr m:val="⏟"/><m:pos m:val="bot"/></m:groupChrPr><m:e><m:r><m:t>x</m:t></m:r></m:e></m:groupChr></m:oMath>`, expect: ["\\underbrace{x}"] },
+];
+
+console.log("\n反向专测（读 Word 原生公式）：");
+for (const c of reverseCases) {
+  const problems = [];
+  let latex = "";
+  try {
+    latex = omml2latex(c.omml);
+  } catch (e) {
+    problems.push("反向转换抛异常: " + e.message);
+  }
+  for (const token of c.expect) {
+    if (!latex.includes(token)) problems.push("缺少: " + JSON.stringify(token) + "（实得 " + JSON.stringify(latex) + "）");
+  }
+  const ok = problems.length === 0;
+  if (ok) pass++;
+  else fails.push({ name: c.name, problems, omml: c.omml });
+  console.log(pad(c.name, 28), pad(latex, 26), ok ? "✅ 通过" : "❌ 失败");
+}
+
+console.log("-".repeat(72));
+console.log(`反向专测 ${reverseCases.length} 项，累计通过 ${pass} 项。`);
 
 if (fails.length) {
   console.log("\n失败详情：");

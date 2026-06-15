@@ -23,6 +23,21 @@ const NARY = new Set(["∑", "∏", "∐", "∫", "∬", "∭", "∮", "∯", "�
 const OPEN_FENCE = new Set(["(", "[", "{", "|", "‖", "⟨", "."]);
 const CLOSE_FENCE = new Set([")", "]", "}", "|", "‖", "⟩", "."]);
 
+// MathLive 的重音 <mover accent="true"> 上方会放一个间距型重音符（如 ^ ~ ¨ →）。
+// OMML 的 m:acc 期望的是「组合用」重音字符（U+03xx / U+20D7），否则 Word 会把
+// 重音渲染偏位。这里把 MathLive 的字符映射成对应的组合字符。
+const ACCENT_TO_COMBINING = {
+  "^": "̂", "ˆ": "̂", // \hat
+  "~": "̃", "˜": "̃", // \tilde
+  "´": "́", "ˊ": "́", // \acute
+  "`": "̀", "ˋ": "̀", // \grave
+  "˙": "̇", // \dot
+  "¨": "̈", // \ddot
+  "¯": "̄", "ˉ": "̄", "̄": "̄", // \bar
+  "ˇ": "̌", // \check
+  "→": "⃗", "⃗": "⃗", // \vec
+};
+
 const localName = (n) => n.localName || n.tagName.replace(/^.*:/, "");
 // MathLive may emit invisible MathML operators such as U+2062 INVISIBLE TIMES
 // for implicit multiplication (for example "4ac"). Word can render those
@@ -119,6 +134,14 @@ function delimitedMatrix(mtableNode, open, close) {
 // 把单个节点转成一段 OMML（mrow 会自动展开成序列）
 function slot(node) {
   return node ? convert(node) : "";
+}
+
+// 重音：<mover accent="true"><base/><mo>重音符</mo></mover> → m:acc
+function accentXml(kids) {
+  const base = slot(kids[0]);
+  const mark = (kids[1] ? kids[1].textContent : "").trim();
+  const chr = ACCENT_TO_COMBINING[mark] || mark;
+  return `<m:acc><m:accPr><m:chr m:val="${esc(chr)}"/></m:accPr><m:e>${base}</m:e></m:acc>`;
 }
 
 // 上下标：msup / msub / msubsup
@@ -291,6 +314,8 @@ function convert(node) {
     case "munder":
       return underover(kids, "under");
     case "mover":
+      // accent="true" 是重音（\hat \vec \dot…），否则是上方标注（overset / lim 等）
+      if (node.getAttribute("accent") === "true") return accentXml(kids);
       return underover(kids, "over");
     case "munderover":
       return underover(kids, "underover");

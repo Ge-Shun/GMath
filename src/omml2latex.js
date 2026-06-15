@@ -82,6 +82,42 @@ function naryLatex(node) {
   return out + (e ? " " + e : "");
 }
 
+// OMML m:acc 的重音字符 → LaTeX 命令。键含组合字符（U+03xx/U+20D7），
+// 同时兼容 Word 里可能直接存的间距型重音符（^ ~ ¯ ˙ ¨）。
+const ACC_CMD = {
+  "̂": "\\hat", "^": "\\hat", "ˆ": "\\hat",
+  "̃": "\\tilde", "~": "\\tilde", "˜": "\\tilde",
+  "́": "\\acute", "´": "\\acute",
+  "̀": "\\grave", "`": "\\grave",
+  "̇": "\\dot", "˙": "\\dot",
+  "̈": "\\ddot", "¨": "\\ddot",
+  "̄": "\\bar", "¯": "\\bar", "ˉ": "\\bar",
+  "̌": "\\check", "ˇ": "\\check",
+  "⃗": "\\vec", "→": "\\vec",
+};
+
+function accLatex(node) {
+  const pr = child(node, "accPr");
+  const chr = (pr && attrVal(child(pr, "chr"))) || "̂";
+  const cmd = ACC_CMD[chr] || "\\hat";
+  return `${cmd}${grp(slot(child(node, "e")))}`;
+}
+
+function barLatex(node) {
+  const pr = child(node, "barPr");
+  const pos = (pr && attrVal(child(pr, "pos"))) || "top";
+  const cmd = pos === "bot" ? "\\underline" : "\\overline";
+  return `${cmd}${grp(slot(child(node, "e")))}`;
+}
+
+function groupChrLatex(node) {
+  const pr = child(node, "groupChrPr");
+  const chr = (pr && attrVal(child(pr, "chr"))) || "";
+  const pos = (pr && attrVal(child(pr, "pos"))) || "bot";
+  const cmd = chr === "⏟" || (chr === "" && pos === "bot") ? "\\underbrace" : "\\overbrace";
+  return `${cmd}${grp(slot(child(node, "e")))}`;
+}
+
 // 矩阵的列对齐里是否出现 left/right（→ 对齐公式组 aligned；纯居中则是普通矩阵）
 function hasAlignCols(mNode) {
   const mPr = child(mNode, "mPr");
@@ -192,6 +228,13 @@ function convert(node) {
     case "m":
       // 裸矩阵：带 right/left 列对齐的是对齐公式组（aligned），否则普通 matrix。
       return matrixLatex(node, hasAlignCols(node) ? "aligned" : "matrix");
+
+    case "acc": // 重音：\hat \vec \dot …
+      return accLatex(node);
+    case "bar": // 上/下划线：\overline \underline
+      return barLatex(node);
+    case "groupChr": // 上/下花括：\overbrace \underbrace
+      return groupChrLatex(node);
 
     case "limLow": // base 下方加注（如 lim_{x→0}）
       return `\\underset${grp(slot(child(node, "lim")))}${grp(slot(child(node, "e")))}`;
