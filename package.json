@@ -2,6 +2,7 @@
   "name": "gmath-word-addin",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Word 加载项：可视化编辑并插入原生可编辑公式，替代 MathType。",
   "scripts": {
     "dev-certs": "office-addin-dev-certs install",
