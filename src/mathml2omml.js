@@ -16,6 +16,13 @@ const M = "http://schemas.openxmlformats.org/officeDocument/2006/math";
 // 作为 n-ary（大型运算符，下/上标是上下限）处理的字符
 const NARY = new Set(["∑", "∏", "∐", "∫", "∬", "∭", "∮", "∯", "∰", "⋃", "⋂", "⋁", "⋀", "⨁", "⨂", "⨀"]);
 
+// 矩阵/分段的定界符。MathLive 会把 \begin{pmatrix}…\end{pmatrix} 之类输出成
+// 「开括号 mo + mtable + 闭括号 mo」三个兄弟节点；分段 \begin{cases} 则是
+// 「{ mo + mtable」（无右括号）。这里识别这些字符，把矩阵折叠进 m:d 定界符，
+// 让 Word 里的括号能随矩阵高度自适应拉伸，而不是降级成普通文字。
+const OPEN_FENCE = new Set(["(", "[", "{", "|", "‖", "⟨", "."]);
+const CLOSE_FENCE = new Set([")", "]", "}", "|", "‖", "⟩", "."]);
+
 const localName = (n) => n.localName || n.tagName.replace(/^.*:/, "");
 // MathLive may emit invisible MathML operators such as U+2062 INVISIBLE TIMES
 // for implicit multiplication (for example "4ac"). Word can render those
@@ -49,9 +56,64 @@ const run = (text) => {
   return value ? `<m:r><m:t xml:space="preserve">${value}</m:t></m:r>` : "";
 };
 
-// 把若干元素子节点依次转换并拼接（用于 m:e / m:num 这类“一组内容”的槽位）
+const fenceChar = (node, set) => {
+  if (!node || localName(node) !== "mo") return null;
+  const t = node.textContent.trim();
+  return set.has(t) ? t : null;
+};
+
+// 读 mtable 的 columnalign（如 "right left"）→ 每列对齐数组；缺省按列数补 "center"。
+function columnAligns(mtableNode) {
+  const cols = colCount(mtableNode);
+  const raw = (mtableNode.getAttribute("columnalign") || "").trim();
+  if (!raw) return Array(cols).fill("center");
+  const toks = raw.split(/\s+/).filter(Boolean);
+  return Array.from({ length: cols }, (_, i) => toks[Math.min(i, toks.length - 1)] || "center");
+}
+
+const colCount = (mtableNode) => {
+  const firstRow = kidsOf(mtableNode).find((r) => localName(r) === "mtr");
+  return firstRow ? kidsOf(firstRow).filter((c) => localName(c) === "mtd").length : 0;
+};
+
+// 对齐公式组（aligned/align）：裸 mtable，列对齐里出现 right/left（而非纯居中矩阵）。
+const isAlignArray = (mtableNode) =>
+  columnAligns(mtableNode).some((a) => a === "left" || a === "right");
+
+// 把若干元素子节点依次转换并拼接（用于 m:e / m:num 这类“一组内容”的槽位）。
+// 同时识别：①「开括号 + 矩阵 + 闭括号?」→ m:d 定界符包裹的矩阵；
+//           ②裸的对齐公式组 → 带交替列对齐的 m:m。
 function seq(node) {
-  return kidsOf(node).map(convert).join("");
+  const kids = kidsOf(node);
+  const out = [];
+  for (let i = 0; i < kids.length; i++) {
+    const open = fenceChar(kids[i], OPEN_FENCE);
+    const next = kids[i + 1];
+    if (open !== null && next && localName(next) === "mtable") {
+      const close = fenceChar(kids[i + 2], CLOSE_FENCE);
+      out.push(delimitedMatrix(next, open, close ?? ""));
+      i += close !== null ? 2 : 1;
+      continue;
+    }
+    const k = kids[i];
+    if (localName(k) === "mtable" && isAlignArray(k)) {
+      out.push(matrix(k, columnAligns(k)));
+      continue;
+    }
+    out.push(convert(k));
+  }
+  return out.join("");
+}
+
+// 矩阵外加定界符。分段（左花括号、无右括号）用全列左对齐。
+function delimitedMatrix(mtableNode, open, close) {
+  const isCases = open === "{" && (close === "" || close === ".");
+  const aligns = isCases ? Array(colCount(mtableNode)).fill("left") : null;
+  const inner = matrix(mtableNode, aligns);
+  return (
+    `<m:d><m:dPr><m:begChr m:val="${esc(open)}"/><m:endChr m:val="${esc(close)}"/><m:grow/></m:dPr>` +
+    `<m:e>${inner}</m:e></m:d>`
+  );
 }
 
 // 把单个节点转成一段 OMML（mrow 会自动展开成序列）
@@ -107,8 +169,25 @@ function fenced(node) {
   return `<m:d><m:dPr><m:begChr m:val="${esc(begChr)}"/><m:endChr m:val="${esc(endChr)}"/></m:dPr><m:e>${seq(node)}</m:e></m:d>`;
 }
 
-// 矩阵 mtable
-function matrix(node) {
+// 把每列对齐数组（如 ["right","left"]）压成 OMML 的 m:mcs：相邻同对齐的列合并成
+// 一个 m:mc，用 m:count 记列数。aligns 为 null 时返回空（默认居中，无 m:mPr）。
+function matrixColsXml(aligns) {
+  if (!aligns || !aligns.length) return "";
+  const groups = [];
+  for (const a of aligns) {
+    const last = groups[groups.length - 1];
+    if (last && last.jc === a) last.count++;
+    else groups.push({ jc: a, count: 1 });
+  }
+  const mcs = groups
+    .map((g) => `<m:mc><m:mcPr><m:count m:val="${g.count}"/><m:mcJc m:val="${g.jc}"/></m:mcPr></m:mc>`)
+    .join("");
+  return `<m:mPr><m:mcs>${mcs}</m:mcs></m:mPr>`;
+}
+
+// 矩阵 mtable。aligns 为每列对齐（"left"/"right"/"center"）数组，用于分段函数
+// （全左对齐）与对齐公式组（交替右/左）；普通矩阵传 null（居中）。
+function matrix(node, aligns = null) {
   const rows = kidsOf(node).filter((r) => localName(r) === "mtr");
   const body = rows
     .map((r) => {
@@ -119,7 +198,7 @@ function matrix(node) {
       return `<m:mr>${cells}</m:mr>`;
     })
     .join("");
-  return `<m:m>${body}</m:m>`;
+  return `<m:m>${matrixColsXml(aligns)}${body}</m:m>`;
 }
 
 // Content MathML: <apply><power/><ci>x</ci><cn>5</cn></apply>
@@ -220,7 +299,8 @@ function convert(node) {
       return fenced(node);
 
     case "mtable":
-      return matrix(node);
+      // 裸 mtable 作为根直达此处（未经 seq）：对齐公式组保留列对齐，普通矩阵居中。
+      return matrix(node, isAlignArray(node) ? columnAligns(node) : null);
 
     default:
       // 未知标签：尽量保留其子内容，避免整段丢失

@@ -82,20 +82,51 @@ function naryLatex(node) {
   return out + (e ? " " + e : "");
 }
 
+// 矩阵的列对齐里是否出现 left/right（→ 对齐公式组 aligned；纯居中则是普通矩阵）
+function hasAlignCols(mNode) {
+  const mPr = child(mNode, "mPr");
+  const mcs = mPr && child(mPr, "mcs");
+  if (!mcs) return false;
+  return kidsOf(mcs).some((mc) => {
+    const mcPr = child(mc, "mcPr");
+    const jc = mcPr && attrVal(child(mcPr, "mcJc"));
+    return jc === "left" || jc === "right";
+  });
+}
+
+// 定界符的开闭字符 → 矩阵/分段环境名（与 mathml2omml 的折叠互逆）
+function matrixEnv(beg, end) {
+  const b = beg ?? "";
+  const e = end ?? "";
+  if (b === "(" && e === ")") return "pmatrix";
+  if (b === "[" && e === "]") return "bmatrix";
+  if (b === "{" && e === "}") return "Bmatrix";
+  if (b === "|" && e === "|") return "vmatrix";
+  if (b === "‖" && e === "‖") return "Vmatrix";
+  if (b === "{" && (e === "" || e === ".")) return "cases";
+  return null;
+}
+
 function delimLatex(node) {
   const pr = child(node, "dPr");
   const beg = (pr && attrVal(child(pr, "begChr"))) ?? "(";
   const end = (pr && attrVal(child(pr, "endChr"))) ?? ")";
-  const items = kidsOf(node)
-    .filter((n) => localName(n) === "e")
-    .map((e) => seq(e))
-    .join(",");
+  const es = kidsOf(node).filter((n) => localName(n) === "e");
+  // 定界符内恰好只包一个矩阵 → 还原成 pmatrix/bmatrix/…/cases
+  if (es.length === 1) {
+    const inner = kidsOf(es[0]).filter((n) => !isPr(localName(n)));
+    if (inner.length === 1 && localName(inner[0]) === "m") {
+      const env = matrixEnv(beg, end);
+      if (env) return matrixLatex(inner[0], env);
+    }
+  }
+  const items = es.map((e) => seq(e)).join(",");
   const L = beg === "" ? "." : beg;
   const R = end === "" ? "." : end;
   return `\\left${L}${items}\\right${R}`;
 }
 
-function matrixLatex(node) {
+function matrixLatex(node, env = "matrix") {
   const rows = kidsOf(node).filter((r) => localName(r) === "mr");
   const body = rows
     .map((r) =>
@@ -105,7 +136,7 @@ function matrixLatex(node) {
         .join(" & ")
     )
     .join(" \\\\ ");
-  return `\\begin{matrix}${body}\\end{matrix}`;
+  return `\\begin{${env}}${body}\\end{${env}}`;
 }
 
 function radLatex(node) {
@@ -159,7 +190,8 @@ function convert(node) {
       return delimLatex(node);
 
     case "m":
-      return matrixLatex(node);
+      // 裸矩阵：带 right/left 列对齐的是对齐公式组（aligned），否则普通 matrix。
+      return matrixLatex(node, hasAlignCols(node) ? "aligned" : "matrix");
 
     case "limLow": // base 下方加注（如 lim_{x→0}）
       return `\\underset${grp(slot(child(node, "lim")))}${grp(slot(child(node, "e")))}`;
