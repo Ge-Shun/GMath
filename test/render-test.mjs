@@ -8,8 +8,8 @@
 //   3) 输出包含该类公式应有的关键 OMML 结构。
 
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
-globalThis.DOMParser = DOMParser; // mml2omml.js / omml2mml.js 依赖全局 DOMParser
-globalThis.XMLSerializer = XMLSerializer; // omml2mml.js 的 extractOMath 依赖
+globalThis.DOMParser = DOMParser; // 转换器依赖全局 DOMParser
+globalThis.XMLSerializer = XMLSerializer; // 选区 OOXML 检查依赖
 
 const { mml2omml } = await import("../src/mathml2omml.js");
 const { omml2latex } = await import("../src/omml2latex.js");

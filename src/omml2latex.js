@@ -14,6 +14,11 @@ const kidsOf = (node) => Array.from(node.childNodes).filter((n) => n.nodeType ==
 const child = (node, name) => kidsOf(node).find((n) => localName(n) === name) || null;
 const isPr = (name) => /Pr$/.test(name); // naryPr / radPr / sSupPr / dPr / mPr / rPr …
 const attrVal = (el) => (el ? el.getAttribute("m:val") ?? el.getAttribute("val") : null);
+let warningSink = null;
+
+function warnLossy(name) {
+  if (warningSink) warningSink.add(name);
+}
 
 // n-ary 运算符 → LaTeX 命令
 const NARY_CMD = {
@@ -243,6 +248,7 @@ function convert(node) {
 
     default:
       if (isPr(name)) return "";
+      warnLossy(name);
       return kidsOf(node).length ? seq(node) : textToLatex(node.textContent);
   }
 }
@@ -253,18 +259,77 @@ function convert(node) {
  * @returns {string}
  */
 export function omml2latex(ommlString) {
-  const doc = new DOMParser().parseFromString(ommlString, "application/xml");
-  const err = doc.getElementsByTagName("parsererror")[0];
-  if (err) throw new Error("OMML 解析失败：" + err.textContent.trim());
+  return omml2latexDetailed(ommlString).latex;
+}
 
-  let root = doc.documentElement;
-  if (localName(root) !== "oMath" && localName(root) !== "oMathPara") {
-    const found = Array.from(doc.getElementsByTagName("*")).find(
-      (n) => localName(n) === "oMath" || localName(n) === "oMathPara"
-    );
-    if (found) root = found;
+/**
+ * 与 omml2latex 相同，但同时报告被降级展开的 OMML 标签。
+ * @returns {{latex:string, warnings:string[], lossy:boolean}}
+ */
+export function omml2latexDetailed(ommlString) {
+  const previousSink = warningSink;
+  const warnings = new Set();
+  warningSink = warnings;
+  try {
+    const doc = new DOMParser().parseFromString(ommlString, "application/xml");
+    const err = doc.getElementsByTagName("parsererror")[0];
+    if (err) throw new Error("OMML 解析失败：" + err.textContent.trim());
+
+    let root = doc.documentElement;
+    if (localName(root) !== "oMath" && localName(root) !== "oMathPara") {
+      const found = Array.from(doc.getElementsByTagName("*")).find(
+        (n) => localName(n) === "oMath" || localName(n) === "oMathPara"
+      );
+      if (found) root = found;
+    }
+    const latex = convert(root).trim();
+    return { latex, warnings: Array.from(warnings).sort(), lossy: warnings.size > 0 };
+  } finally {
+    warningSink = previousSink;
   }
-  return convert(root).trim();
+}
+
+const hasAncestorMath = (node) => {
+  let cur = node.parentNode;
+  while (cur && cur.nodeType === 1) {
+    const name = localName(cur);
+    if (name === "oMath" || name === "oMathPara") return true;
+    cur = cur.parentNode;
+  }
+  return false;
+};
+
+/**
+ * 检查 Word 选区 OOXML 是否只包含一个公式，并提取 GMath 内容控件标签。
+ */
+export function inspectOmathPackage(ooxmlPackage) {
+  const doc = new DOMParser().parseFromString(ooxmlPackage, "application/xml");
+  const all = Array.from(doc.getElementsByTagName("*"));
+  const paras = all.filter((n) => localName(n) === "oMathPara");
+  const standalone = all.filter(
+    (n) => localName(n) === "oMath" && !hasAncestorMath(n)
+  );
+  const regions = [...paras, ...standalone];
+  const outsideText = all
+    .filter((n) => localName(n) === "t" && !hasAncestorMath(n))
+    .map((n) => n.textContent || "")
+    .join("")
+    .trim();
+  const tagNode = all.find((n) => {
+    if (localName(n) !== "tag") return false;
+    const value = attrVal(n) || n.getAttribute("w:val") || "";
+    return value.startsWith("gmath:");
+  });
+  const gmathTag = tagNode
+    ? attrVal(tagNode) || tagNode.getAttribute("w:val") || null
+    : null;
+  return {
+    count: regions.length,
+    omml: regions[0] ? new XMLSerializer().serializeToString(regions[0]) : null,
+    outsideText,
+    gmathTag,
+    safe: regions.length === 1 && outsideText === "",
+  };
 }
 
 /**
@@ -274,10 +339,5 @@ export function omml2latex(ommlString) {
  * @returns {string|null} OMML 字符串；找不到返回 null
  */
 export function extractOMath(ooxmlPackage) {
-  const doc = new DOMParser().parseFromString(ooxmlPackage, "application/xml");
-  const all = Array.from(doc.getElementsByTagName("*"));
-  const para = all.find((n) => localName(n) === "oMathPara");
-  const target = para || all.find((n) => localName(n) === "oMath");
-  if (!target) return null;
-  return new XMLSerializer().serializeToString(target);
+  return inspectOmathPackage(ooxmlPackage).omml;
 }

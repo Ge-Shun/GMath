@@ -10,8 +10,9 @@ templates, image-to-formula recognition, and insertion as native Word equations.
 
 The inserted result is not an image. It remains editable in Word.
 
-This project is currently focused on Microsoft Word for Mac. Windows sideloading
-is not packaged in this repository yet.
+This project is currently validated primarily on Microsoft Word for Mac. The
+manifest requires WordApi 1.1, so other Word platforms may install it, but
+Windows, web, and iPad aren't yet part of the supported test matrix.
 
 ## Highlights
 
@@ -74,9 +75,10 @@ Open **API Settings** in the task pane and enter:
 - An API key
 - A vision-capable model name
 
-The endpoint and key are stored in the task pane's local browser storage. During
-recognition, the selected image and API key are sent to the provider you
-configured.
+The endpoint and model are stored in local browser storage. The API key is kept
+only for the current task-pane session by default; it is persisted only when you
+select **Remember the key on this device**. During recognition, the image and key
+are sent to the provider you configured.
 
 For providers that reject browser CORS requests, start the temporary proxy:
 
@@ -92,6 +94,12 @@ https://localhost:3000/api/ai/chat/completions
 ```
 
 GMath does not install a persistent background service.
+
+The local proxy accepts only the hosted GMath page and local task pane, requires
+public HTTPS targets, and blocks private/loopback addresses. Set the optional,
+comma-separated `GMATH_AI_HOSTS` to restrict target hosts further. For a trusted
+local model endpoint, explicitly set `GMATH_ALLOW_PRIVATE_AI=1`; an HTTP endpoint
+also requires `GMATH_ALLOW_INSECURE_AI=1`.
 
 ## Development
 
@@ -136,6 +144,18 @@ If an equation inserts incorrectly, open the debug section at the bottom of the
 task pane and inspect the generated MathML / OMML. Some advanced structures may
 not be supported yet.
 
+## Testing
+
+```bash
+npm test
+npm run check
+npm run validate
+```
+
+The suite covers authored conversion fixtures, real MathLive serialization,
+selection/lossy-conversion guards, and the local proxy's origin, token, target,
+and static-path boundaries.
+
 ## Remove the Add-in
 
 Delete the sideloaded manifest:
@@ -148,5 +168,5 @@ Then restart Word.
 
 ## Third-Party Software
 
-GMath uses MathLive for visual equation editing. MathLive is licensed under the
-MIT License.
+GMath uses MathLive, Fraunces, and JetBrains Mono. See `THIRD_PARTY_NOTICES.md`
+and the license files shipped under `src/vendor` for licenses and sources.

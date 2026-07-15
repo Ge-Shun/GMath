@@ -29,7 +29,7 @@ fs.writeFileSync(target, manifest);
 console.log(`已复制 manifest 到 Word：${target}`);
 if (mode === "local") {
   console.log(`任务窗格地址：${localTaskpaneUrl}`);
-  console.log("本地开发模式需要 localhost 服务运行；可手动运行 npm run serve，或运行 npm run proxy:install:mac 安装自启动。");
+  console.log("本地开发模式需要 localhost 服务运行；请在另一个终端保持 npm run serve 运行。");
   console.log("然后完全退出并重新打开 Word。");
 } else {
   console.log("任务窗格地址：https://ge-shun.github.io/GMath/src/taskpane.html");
