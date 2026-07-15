@@ -35,7 +35,7 @@
     onerror="window.__gmathMark && window.__gmathMark('mathlive failed')"
   ></script>
 
-  <link rel="stylesheet" href="./taskpane.css?v=2026-06-15-decorations" />
+  <link rel="stylesheet" href="./taskpane.css?v=1.0.14" />
 </head>
 <body>
   <header class="reveal">
@@ -55,10 +55,12 @@
   <p class="eyebrow reveal"><span data-i18n="ebImage">图片转公式 · AI 识别</span>
     <button type="button" id="aiSettingsBtn" class="eyebrow-btn"
             data-i18n="apiSettings" data-i18n-title="apiSettingsTitle"
-            title="配置大模型接口">⚙ 接口设置</button>
+            title="配置大模型接口" aria-expanded="false" aria-controls="aiSettings">⚙ 接口设置</button>
   </p>
   <div class="ai reveal">
-    <div class="ai-drop" id="aiDrop" tabindex="0" data-i18n-title="aiDropTitle" title="粘贴或点击选择图片">
+    <div class="ai-drop" id="aiDrop" tabindex="0" role="button"
+         data-i18n-title="aiDropTitle" data-i18n-aria="aiDropTitle"
+         title="粘贴或点击选择图片" aria-label="粘贴或点击选择图片">
       <input type="file" id="aiFile" accept="image/*" hidden />
       <div class="ai-hint" id="aiHint">
         <span class="ai-cam">📷</span>
@@ -66,7 +68,7 @@
       </div>
       <img id="aiThumb" class="ai-thumb" hidden alt="" />
     </div>
-    <div class="ai-status" id="aiStatus" hidden></div>
+    <div class="ai-status" id="aiStatus" role="status" aria-live="polite" hidden></div>
 
     <div class="ai-settings" id="aiSettings" hidden>
       <label><span data-i18n="aiUrlLabel">API 地址</span>
@@ -82,7 +84,10 @@
       </label>
       <div class="ai-srow">
         <button type="button" id="aiSaveBtn" data-i18n="aiSave">保存设置</button>
-        <span class="ai-note" data-i18n="aiNote">仅存于本机浏览器；识别时把图片与 Key 发送到你填写的接口。</span>
+        <label class="ai-remember"><input type="checkbox" id="aiRememberKey" />
+          <span data-i18n="aiRememberKey">在此设备长期保存 Key</span>
+        </label>
+        <span class="ai-note" data-i18n="aiNote">默认仅在本次任务窗会话保存 Key；识别时图片与 Key 会发送到你填写的接口。</span>
       </div>
     </div>
   </div>
@@ -96,10 +101,10 @@
   <div class="row reveal">
     <button id="insertBtn" data-i18n="insert" disabled>插入到 Word</button>
     <button id="clearBtn" class="secondary" data-i18n="clear">清空</button>
-    <div class="seg" id="layoutMode" role="group" aria-label="公式版式">
-      <button type="button" data-mode="inline" data-i18n="inline" data-i18n-title="inlineTitle" title="行内公式：嵌入正文行中">行内</button>
-      <button type="button" data-mode="display" class="active" data-i18n="display" data-i18n-title="displayTitle" title="行间公式：独立居中成行">行间</button>
-      <button type="button" data-mode="numbered" data-i18n="numbered" data-i18n-title="numberedTitle" title="右编号公式：居中成行，右侧加编号">右编号</button>
+    <div class="seg" id="layoutMode" role="group" data-i18n-aria="layoutAria" aria-label="公式版式">
+      <button type="button" data-mode="inline" aria-pressed="false" data-i18n="inline" data-i18n-title="inlineTitle" title="行内公式：嵌入正文行中">行内</button>
+      <button type="button" data-mode="display" aria-pressed="true" class="active" data-i18n="display" data-i18n-title="displayTitle" title="行间公式：独立居中成行">行间</button>
+      <button type="button" data-mode="numbered" aria-pressed="false" data-i18n="numbered" data-i18n-title="numberedTitle" title="右编号公式：居中成行，右侧加编号">右编号</button>
     </div>
   </div>
 
@@ -113,16 +118,16 @@
     <textarea id="latex" spellcheck="false" data-i18n-ph="latexPh" placeholder="在此输入 LaTeX"></textarea>
   </div>
 
-  <div class="status reveal" id="status">正在初始化…</div>
+  <div class="status reveal" id="status" role="status" aria-live="polite">正在初始化…</div>
 
   <details class="reveal">
     <summary data-i18n="debugSummary">查看转换得到的 OMML / MathML（调试用）</summary>
-    <textarea id="debug" readonly style="min-height:120px;margin-top:8px;"></textarea>
+    <textarea id="debug" class="debug-output" readonly></textarea>
   </details>
 
   <script
     type="module"
-    src="./taskpane.js?v=2026-06-15-decorations"
+    src="./taskpane.js?v=1.0.14"
     onload="window.__gmathMark && window.__gmathMark('taskpane module loaded')"
     onerror="window.__gmathMark && window.__gmathMark('taskpane module failed')"
   ></script>

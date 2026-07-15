@@ -8,7 +8,7 @@
 
 插入结果不是图片，而是 Word 原生可编辑公式。
 
-本项目目前主要面向 Microsoft Word for Mac。Windows 旁加载流程还没有打包到此仓库中。
+本项目目前主要在 Microsoft Word for Mac 上验证。清单要求 WordApi 1.1，因此其它支持该 API 集的 Word 平台可能可以安装，但 Windows、Web 与 iPad 尚未纳入正式测试矩阵。
 
 ## 功能亮点
 
@@ -65,7 +65,7 @@ https://ge-shun.github.io/GMath/src/taskpane.html
 - API Key
 - 支持图片输入的模型名
 
-接口地址和 Key 会保存在任务窗格的本机浏览器存储中。识别时，所选图片和 API Key 会发送给你配置的接口服务商。
+接口地址与模型会保存在本机浏览器存储中。API Key 默认只保存在当前任务窗会话；只有勾选“在此设备长期保存 Key”时才会持久保存。识别时，所选图片和 API Key 会发送给你配置的接口服务商。
 
 对于禁止浏览器跨域请求的接口，启动临时代理：
 
@@ -81,6 +81,8 @@ https://localhost:3000/api/ai/chat/completions
 ```
 
 GMath 不会安装常驻后台服务。
+
+本地代理仅接受 GMath 托管页与本地任务窗来源，只允许 HTTPS 公网接口，并会阻止私网/回环地址。可用逗号分隔的 `GMATH_AI_HOSTS` 进一步限定允许的接口主机。若你明确需要连接本机模型服务，可在受信任环境中设置 `GMATH_ALLOW_PRIVATE_AI=1`；HTTP 接口还需同时设置 `GMATH_ALLOW_INSECURE_AI=1`。
 
 ## 开发调试
 
@@ -119,6 +121,16 @@ npm run sideload:mac
 
 如果公式插入后显示不正确，可以打开任务窗格底部的调试区域，查看生成的 MathML / OMML。部分复杂结构可能暂未支持。
 
+## 测试
+
+```bash
+npm test
+npm run check
+npm run validate
+```
+
+测试覆盖手写转换样本、真实 MathLive 序列化、选区/有损转换保护，以及本地代理的来源、令牌、目标地址和静态目录安全边界。
+
 ## 卸载加载项
 
 删除旁加载清单：
@@ -131,4 +143,4 @@ rm ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/manifest.xml
 
 ## 第三方软件
 
-GMath 使用 MathLive 提供可视化公式编辑能力。MathLive 采用 MIT License。
+GMath 使用 MathLive、Fraunces 与 JetBrains Mono。第三方许可与来源见 `THIRD_PARTY_NOTICES.md` 及 `src/vendor` 下随附的许可文件。

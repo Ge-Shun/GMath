@@ -75,6 +75,11 @@
       .reveal { animation: none; opacity: 1; }
     }
 
+    :where(button, [role="button"], input, textarea):focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
     /* ===== 页眉品牌区 ===== */
     header {
       display: flex;
@@ -392,6 +397,26 @@
       outline: none;
       border-color: var(--blue);
       background: var(--blue-tint);
+    }
+
+    .ai-remember {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--ink-soft);
+      font-size: 12px;
+    }
+
+    .ai-settings .ai-remember { flex-direction: row; }
+    .ai-settings .ai-remember input {
+      width: auto;
+      margin: 0;
+      padding: 0;
+    }
+
+    .debug-output {
+      min-height: 120px;
+      margin-top: 8px;
     }
     .ai-hint {
       display: flex; flex-direction: column; align-items: center; gap: 6px;

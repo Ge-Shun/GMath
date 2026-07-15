@@ -12,6 +12,11 @@
 //   矩阵     <m:m><m:mr><m:e>…</m:e>…</m:mr>…</m:m>
 
 const M = "http://schemas.openxmlformats.org/officeDocument/2006/math";
+let warningSink = null;
+
+function warnLossy(name) {
+  if (warningSink) warningSink.add(name);
+}
 
 // 作为 n-ary（大型运算符，下/上标是上下限）处理的字符
 const NARY = new Set(["∑", "∏", "∐", "∫", "∬", "∭", "∮", "∯", "∰", "⋃", "⋂", "⋁", "⋀", "⨁", "⨂", "⨀"]);
@@ -273,8 +278,11 @@ function convert(node) {
     case "mrow":
     case "mstyle":
     case "mpadded":
-    case "menclose":
       return seq(node); // 透明容器：直接展开子节点
+
+    case "menclose":
+      warnLossy(name); // 边框/删除线等装饰目前不能无损映射到 OMML
+      return seq(node);
 
     case "mi":
     case "mn":
@@ -329,6 +337,7 @@ function convert(node) {
 
     default:
       // 未知标签：尽量保留其子内容，避免整段丢失
+      warnLossy(name);
       return kids.length ? seq(node) : run(node.textContent);
   }
 }
@@ -339,16 +348,28 @@ function convert(node) {
  * @returns {string} OMML
  */
 export function mml2omml(mathmlString) {
-  const doc = new DOMParser().parseFromString(mathmlString, "application/xml");
-  const err = doc.getElementsByTagName("parsererror")[0];
-  if (err) throw new Error("MathML 解析失败：" + err.textContent.trim());
+  return mml2ommlDetailed(mathmlString).omml;
+}
 
-  // 取根 <math>（若无则用文档根元素）
-  let root = doc.documentElement;
-  if (localName(root) !== "math") {
-    const found = Array.from(doc.getElementsByTagName("*")).find((n) => localName(n) === "math");
-    if (found) root = found;
-  }
+/**
+ * 与 mml2omml 相同，但同时报告被降级展开的 MathML 标签。
+ * @returns {{omml:string, warnings:string[], lossy:boolean}}
+ */
+export function mml2ommlDetailed(mathmlString) {
+  const previousSink = warningSink;
+  const warnings = new Set();
+  warningSink = warnings;
+  try {
+    const doc = new DOMParser().parseFromString(mathmlString, "application/xml");
+    const err = doc.getElementsByTagName("parsererror")[0];
+    if (err) throw new Error("MathML 解析失败：" + err.textContent.trim());
+
+    // 取根 <math>（若无则用文档根元素）
+    let root = doc.documentElement;
+    if (localName(root) !== "math") {
+      const found = Array.from(doc.getElementsByTagName("*")).find((n) => localName(n) === "math");
+      if (found) root = found;
+    }
 
   // 关键：必须 convert(root) 而不是 seq(root)。
   // MathLive 的 getValue('math-ml') 经常输出“裸”的单个元素做根（如 x^1 → <msup>…</msup>，
@@ -356,5 +377,9 @@ export function mml2omml(mathmlString) {
   // 导致 <msup>/<mfrac> 等结构降级成相邻的普通文字 run（x¹ 变 "x1"，a/b 变 "ab"）。
   // convert(root) 会先翻译 root 这一层；当 root 恰好是 <math>/<mrow> 这类透明容器时，
   // convert 内部本就会退化成 seq，行为与原来一致。
-  return `<m:oMath xmlns:m="${M}">${convert(root)}</m:oMath>`;
+    const omml = `<m:oMath xmlns:m="${M}">${convert(root)}</m:oMath>`;
+    return { omml, warnings: Array.from(warnings).sort(), lossy: warnings.size > 0 };
+  } finally {
+    warningSink = previousSink;
+  }
 }

@@ -1,23 +1,20 @@
 // GMath Word 加载项 —— 核心逻辑（纯原生公式 + 双向实时同步，尽力而为）
 // 正向：MathLive 编辑 → MathML → mml2omml 转 OMML → Flat OPC → insertOoxml
-// 反向：点选文档里的公式 → getOoxml → extractOMath → omml2latex → 载入面板
-// 同步：面板里改动 → 防抖 ~0.5s → 替换“当前选中的那个公式”，并重新选中以便继续同步
-//
-// 注意（纯原生、无锚点的固有限制）：回写靠“替换当前选区”。
-//   想可靠同步，请把整个公式选中（拖选或在公式上点一下再用方向键/三击选中），
-//   光标只是停在公式里时，替换可能变成插入。详见 README。
+// 反向：点选文档里的公式 → getOoxml → inspectOmathPackage → omml2latex → 载入面板
+// 同步：新公式用隐藏内容控件 + UUID tag 锚定；旧公式首次回写前验证选区快照并建立锚点。
+// Word.run 任务串行执行，选区变化会使尚未开始的旧任务失效，避免异步竞态误替换正文。
 
-import { mml2omml } from "./mathml2omml.js";
-import { omml2latex, extractOMath } from "./omml2latex.js";
+import { mml2ommlDetailed } from "./mathml2omml.js";
+import { omml2latexDetailed, inspectOmathPackage } from "./omml2latex.js";
 import { latexToOmml, hasDecoration } from "./latex2omml.js";
 import { SYMBOL_CATEGORIES, CAT_EN } from "./symbols.js";
 import { I18N, TIP_EN } from "./i18n.js";
+import { buildFlatOpc } from "./ooxml.js";
+import { LatestTaskQueue, makeAnchorTag, normalizeOmmlFingerprint } from "./sync-state.js";
+import { VERSION } from "./version.js";
+import { AI_LIMITS, cleanLatex, normalizeEndpoint } from "./ai-client.js";
 
-const BUILD = "2026-06-12-common-desc-cache-bust";
-
-// XML 文本转义（用于把用户输入的编号安全嵌入 OOXML）
-const escXml = (s) =>
-  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const BUILD = VERSION;
 
 const $ = (id) => document.getElementById(id);
 const boot = window.__gmathBoot || { start: performance.now(), marks: [] };
@@ -55,6 +52,10 @@ function applyI18n() {
     const v = I18N[lang][el.dataset.i18nTitle];
     if (v != null) el.title = v;
   });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    const v = I18N[lang][el.dataset.i18nAria];
+    if (v != null) el.setAttribute("aria-label", v);
+  });
   document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
   const lb = $("langBtn");
   if (lb) lb.textContent = lang === "zh" ? "EN" : "中";
@@ -87,6 +88,11 @@ let applying = false; // 正在回写（屏蔽选区监听，防自我触发）
 let loadingDoc = false; // 正在把文档公式灌入面板（屏蔽 mathfield→回写）
 let selTimer = null;
 let syncTimer = null;
+let selectionRevision = 0;
+let selectionReadQueued = false;
+let activeAnchorTag = null;
+let loadedOmmlFingerprint = null;
+const syncQueue = new LatestTaskQueue();
 
 bootMark("taskpane module evaluating");
 
@@ -114,7 +120,11 @@ function setMode(isLinked) {
     modeLine.textContent = T("modeLinked");
     modeLine.classList.add("linked");
   } else {
+    clearTimeout(syncTimer);
+    syncQueue.invalidate();
     loadedLatex = null;
+    activeAnchorTag = null;
+    loadedOmmlFingerprint = null;
     modeLine.textContent = T("modeNew");
     modeLine.classList.remove("linked");
   }
@@ -127,73 +137,19 @@ function currentOmml() {
   if (hasDecoration(latex) && window.MathLive?.convertLatexToMathMl) {
     const omml = latexToOmml(latex, {
       convertLatexToMathMl: (s) => window.MathLive.convertLatexToMathMl(s),
-      mml2omml,
+      mml2omml: (mathml) => {
+        const result = mml2ommlDetailed(mathml);
+        if (result.lossy) throw new Error(`${T("unsupportedFormula")} ${result.warnings.join(", ")}`);
+        return result.omml;
+      },
     });
     return omml && omml.trim() ? omml : null;
   }
   const mathml = mathfield.getValue("math-ml");
   if (!mathml || !mathml.trim()) return null;
-  return mml2omml(mathml);
-}
-
-// 生成右编号的文字 run：留空→自动编号（Word SEQ 域，会自动续号）；否则用字面文本
-function buildNumberRuns(numberText) {
-  const t = (numberText || "").trim();
-  if (t) {
-    return `<w:r><w:t xml:space="preserve">${escXml(t)}</w:t></w:r>`;
-  }
-  // ( SEQ equation \* ARABIC ) → (1) (2) …，由 Word 维护并可整篇续号
-  return (
-    `<w:r><w:t xml:space="preserve">(</w:t></w:r>` +
-    `<w:r><w:fldChar w:fldCharType="begin"/></w:r>` +
-    `<w:r><w:instrText xml:space="preserve"> SEQ equation \\* ARABIC </w:instrText></w:r>` +
-    `<w:r><w:fldChar w:fldCharType="separate"/></w:r>` +
-    `<w:r><w:t>1</w:t></w:r>` +
-    `<w:r><w:fldChar w:fldCharType="end"/></w:r>` +
-    `<w:r><w:t xml:space="preserve">)</w:t></w:r>`
-  );
-}
-
-// layout: "inline"（行内）| "display"（行间居中）| "numbered"（居中＋右侧编号）
-function buildFlatOpc(ommlMath, layout, numberText) {
-  let oMath = ommlMath.replace(/^\s*<\?xml[^>]*\?>\s*/i, "").trim();
-  let mathBlock;
-  if (layout === "display") {
-    mathBlock = `<m:oMathPara><m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr>${oMath}</m:oMathPara>`;
-  } else if (layout === "numbered") {
-    // 用「相对页边距的定位制表符」实现：公式居中、编号靠右贴右边距，与纸张/页宽无关
-    mathBlock =
-      `<w:r><w:ptab w:relativeTo="margin" w:alignment="center" w:leader="none"/></w:r>` +
-      oMath +
-      `<w:r><w:ptab w:relativeTo="margin" w:alignment="right" w:leader="none"/></w:r>` +
-      buildNumberRuns(numberText);
-  } else {
-    mathBlock = oMath; // 行内
-  }
-  const documentXml =
-    `<w:document ` +
-    `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
-    `xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">` +
-    `<w:body><w:p>${mathBlock}</w:p></w:body>` +
-    `</w:document>`;
-  const relsXml =
-    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-    `<Relationship Id="rId1" ` +
-    `Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" ` +
-    `Target="word/document.xml"/>` +
-    `</Relationships>`;
-  return (
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<?mso-application progid="Word.Document"?>` +
-    `<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">` +
-    `<pkg:part pkg:name="/_rels/.rels" ` +
-    `pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="512">` +
-    `<pkg:xmlData>${relsXml}</pkg:xmlData></pkg:part>` +
-    `<pkg:part pkg:name="/word/document.xml" ` +
-    `pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">` +
-    `<pkg:xmlData>${documentXml}</pkg:xmlData></pkg:part>` +
-    `</pkg:package>`
-  );
+  const result = mml2ommlDetailed(mathml);
+  if (result.lossy) throw new Error(`${T("unsupportedFormula")} ${result.warnings.join(", ")}`);
+  return result.omml;
 }
 
 const describeError = (e) => ({ code: e.code, message: e.message, debugInfo: e.debugInfo });
@@ -248,6 +204,8 @@ function renderPalette() {
     t.type = "button";
     t.textContent = catLabel(idx);
     t.dataset.cat = String(idx);
+    t.setAttribute("aria-controls", "symGrid");
+    t.setAttribute("aria-expanded", idx === 0 ? "true" : "false");
     if (idx === 0) t.classList.add("active");
     tabs.appendChild(t);
   });
@@ -287,6 +245,7 @@ function getLayout() {
 function setLayout(mode) {
   layoutModeEl.querySelectorAll("button").forEach((b) => {
     b.classList.toggle("active", b.dataset.mode === mode);
+    b.setAttribute("aria-pressed", b.dataset.mode === mode ? "true" : "false");
   });
   eqNumberRow.hidden = mode !== "numbered"; // 编号输入只在「右编号」时出现
   scheduleSync();
@@ -295,92 +254,219 @@ function setLayout(mode) {
 // 把一段 LaTeX 灌入面板（不触发回写）
 function loadIntoPane(latex, display) {
   loadingDoc = true;
-  mathfield.setValue(latex);
-  latexEl.value = mathfield.getValue("latex");
-  if (typeof display === "boolean") setLayout(display ? "display" : "inline");
-  loadingDoc = false;
+  try {
+    mathfield.setValue(latex);
+    latexEl.value = mathfield.getValue("latex");
+    if (typeof display === "boolean") setLayout(display ? "display" : "inline");
+  } finally {
+    loadingDoc = false;
+  }
+}
+
+function finishApplying() {
+  applying = false;
+  if (selectionReadQueued) {
+    selectionReadQueued = false;
+    clearTimeout(selTimer);
+    selTimer = setTimeout(readFromSelection, 0);
+  }
+}
+
+function anchorRange(range, tag) {
+  const control = range.insertContentControl();
+  control.tag = tag;
+  control.title = "GMath formula";
+  control.appearance = "Hidden";
+  return control;
+}
+
+function conversionError(error, action) {
+  setStatus(`${action}${error.message || error}`, "err");
+  if (debugEl) debugEl.value = `[转换保护] ${error.stack || error}\n\n${debugEl.value}`;
 }
 
 // ===== 面板 → 文档：插入一个新公式（不连接） =====
 async function insertNew() {
-  const omml = currentOmml();
+  let omml;
+  try {
+    omml = currentOmml();
+  } catch (error) {
+    conversionError(error, T("insertFail"));
+    return;
+  }
   if (!omml) {
     setStatus(T("emptyFormula"), "err");
     return;
   }
   const flatOpc = buildFlatOpc(omml, getLayout(), eqNumberEl.value);
+  const anchorTag = makeAnchorTag();
   debugEl.value = "构建版本: " + BUILD + "\n\nOMML:\n" + omml + "\n\n完整 OOXML:\n" + flatOpc;
   applying = true;
+  insertBtn.disabled = true;
   try {
     await Word.run(async (context) => {
       const r = context.document.getSelection().insertOoxml(flatOpc, Word.InsertLocation.replace);
+      anchorRange(r, anchorTag);
       r.select(); // 选中新公式，便于随后继续在面板里改、自动同步
       await context.sync();
     });
     loadedLatex = mathfield.getValue("latex");
+    loadedOmmlFingerprint = normalizeOmmlFingerprint(omml);
+    activeAnchorTag = anchorTag;
     setMode(true);
     setStatus(T("insertedLinked"), "ok");
   } catch (e) {
     setStatus(T("insertFail") + (e.code || "") + " " + (e.message || e), "err");
     debugEl.value += "\n\n=== 错误详情 ===\n" + JSON.stringify(describeError(e), null, 2);
   } finally {
-    setTimeout(() => (applying = false), 500);
+    insertBtn.disabled = false;
+    finishApplying();
   }
 }
 
 // ===== 面板 → 文档：把改动同步回当前选中的公式（替换选区） =====
-async function syncToDoc() {
+async function syncToDoc({ isLatest }) {
   if (!linked) return;
-  const omml = currentOmml();
+  let omml;
+  try {
+    omml = currentOmml();
+  } catch (error) {
+    conversionError(error, T("syncFail"));
+    return;
+  }
   if (!omml) return;
   const flatOpc = buildFlatOpc(omml, getLayout(), eqNumberEl.value);
+  const anchorTag = activeAnchorTag;
+  const expectedFingerprint = loadedOmmlFingerprint;
+  let nextAnchorTag = anchorTag;
+  let wrote = false;
   applying = true;
   try {
     await Word.run(async (context) => {
-      const r = context.document.getSelection().insertOoxml(flatOpc, Word.InsertLocation.replace);
+      let r;
+      if (anchorTag) {
+        const controls = context.document.contentControls.getByTag(anchorTag);
+        controls.load("items");
+        await context.sync();
+        if (!isLatest()) return;
+        if (controls.items.length !== 1) {
+          const error = new Error(T("anchorLost"));
+          error.code = "AnchorLost";
+          throw error;
+        }
+        r = controls.items[0].insertOoxml(flatOpc, Word.InsertLocation.replace);
+      } else {
+        const selection = context.document.getSelection();
+        const snapshot = selection.getOoxml();
+        await context.sync();
+        if (!isLatest()) return;
+        const inspected = inspectOmathPackage(snapshot.value);
+        const actualFingerprint = normalizeOmmlFingerprint(inspected.omml);
+        if (!inspected.safe || !expectedFingerprint || actualFingerprint !== expectedFingerprint) {
+          const error = new Error(T("selectionChanged"));
+          error.code = "SelectionChanged";
+          throw error;
+        }
+        r = selection.insertOoxml(flatOpc, Word.InsertLocation.replace);
+        nextAnchorTag = makeAnchorTag();
+        anchorRange(r, nextAnchorTag);
+      }
       r.select(); // 替换后重新选中，保证下一次还能替换到它
       await context.sync();
+      wrote = true;
     });
+    if (!wrote) return;
     loadedLatex = mathfield.getValue("latex");
+    loadedOmmlFingerprint = normalizeOmmlFingerprint(omml);
+    activeAnchorTag = nextAnchorTag;
     setStatus(T("syncedDoc"), "ok");
   } catch (e) {
+    if (e.code === "AnchorLost" || e.code === "SelectionChanged") setMode(false);
     setStatus(T("syncFail") + (e.code || "") + " " + (e.message || e), "err");
   } finally {
-    setTimeout(() => (applying = false), 500);
+    finishApplying();
   }
 }
 
 function scheduleSync() {
   if (!linked || loadingDoc) return;
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(syncToDoc, 600);
+  syncTimer = setTimeout(() => {
+    syncQueue.enqueue(syncToDoc).catch((error) => conversionError(error, T("syncFail")));
+  }, 600);
 }
 
 // ===== 文档 → 面板：选区变化时，若选中的是公式就载入面板 =====
 function onSelectionChanged() {
-  if (applying) return;
+  selectionRevision++;
+  syncQueue.invalidate();
+  if (applying) {
+    selectionReadQueued = true;
+    return;
+  }
   clearTimeout(selTimer);
   selTimer = setTimeout(readFromSelection, 250);
 }
 
 async function readFromSelection() {
-  if (applying) return;
+  if (applying) {
+    selectionReadQueued = true;
+    return;
+  }
+  const revision = selectionRevision;
   try {
     let ooxml = null;
+    let selectedControlTag = null;
     await Word.run(async (context) => {
-      const res = context.document.getSelection().getOoxml();
+      const selection = context.document.getSelection();
+      const res = selection.getOoxml();
+      const controls = selection.contentControls;
+      controls.load("items/tag");
       await context.sync();
       ooxml = res.value;
+      selectedControlTag = controls.items
+        .map((control) => control.tag)
+        .find((tag) => tag && tag.startsWith("gmath:")) || null;
     });
-    const omath = extractOMath(ooxml);
-    if (!omath) {
+    if (revision !== selectionRevision) return;
+    // 光标可能位于内容控件内部，此时 selection.contentControls 不一定包含父控件。
+    // parentContentControl 属于 WordApi 1.1；未处于控件内时会抛 ItemNotFound，安全忽略。
+    if (!selectedControlTag) {
+      try {
+        await Word.run(async (context) => {
+          const parent = context.document.getSelection().parentContentControl;
+          parent.load("tag");
+          await context.sync();
+          if (parent.tag?.startsWith("gmath:")) selectedControlTag = parent.tag;
+        });
+      } catch { /* 当前选区没有父内容控件 */ }
+      if (revision !== selectionRevision) return;
+    }
+    const inspected = inspectOmathPackage(ooxml);
+    if (!inspected.omml) {
       if (linked) setMode(false); // 选区离开了公式 → 断开，避免误同步
       return;
     }
-    const latex = omml2latex(omath);
-    if (linked && latex === loadedLatex) return; // 还是同一个公式，别覆盖正在改的内容
-    loadIntoPane(latex, /oMathPara/.test(omath));
+    if (!inspected.safe) {
+      setMode(false);
+      setStatus(T("unsafeSelection"), "err");
+      return;
+    }
+    const converted = omml2latexDetailed(inspected.omml);
+    if (converted.lossy) {
+      setMode(false);
+      setStatus(`${T("unsupportedSelected")} ${converted.warnings.join(", ")}`, "err");
+      return;
+    }
+    const latex = converted.latex;
+    const observedAnchorTag = selectedControlTag || inspected.gmathTag;
+    if (linked && latex === loadedLatex && observedAnchorTag === activeAnchorTag && observedAnchorTag) {
+      return; // 仍是同一个带锚点公式，别覆盖正在改的内容
+    }
+    loadIntoPane(latex, /oMathPara/.test(inspected.omml));
     loadedLatex = latex;
+    loadedOmmlFingerprint = normalizeOmmlFingerprint(inspected.omml);
+    activeAnchorTag = observedAnchorTag;
     setMode(true);
     setStatus(T("loadedSel"), "ok");
   } catch (e) {
@@ -389,13 +475,33 @@ async function readFromSelection() {
 }
 
 // ===== 图片转公式（AI 识别，OpenAI 兼容视觉接口） =====
-const AI_KEYS = { url: "gmath.ai.url", key: "gmath.ai.key", model: "gmath.ai.model" };
+const AI_KEYS = {
+  url: "gmath.ai.url",
+  key: "gmath.ai.key",
+  model: "gmath.ai.model",
+  remember: "gmath.ai.remember",
+};
+let aiController = null;
+let aiRequestRevision = 0;
+let proxyTokenPromise = null;
 
 function lsGet(k) {
   try { return localStorage.getItem(k) || ""; } catch { return ""; }
 }
 function lsSet(k, v) {
   try { localStorage.setItem(k, v); } catch { /* 某些 WebView 禁用 localStorage */ }
+}
+function lsRemove(k) {
+  try { localStorage.removeItem(k); } catch { /* ignore */ }
+}
+function ssGet(k) {
+  try { return sessionStorage.getItem(k) || ""; } catch { return ""; }
+}
+function ssSet(k, v) {
+  try { sessionStorage.setItem(k, v); } catch { /* ignore */ }
+}
+function ssRemove(k) {
+  try { sessionStorage.removeItem(k); } catch { /* ignore */ }
 }
 
 function setAiStatus(msg, kind = "") {
@@ -406,19 +512,11 @@ function setAiStatus(msg, kind = "") {
   el.className = "ai-status" + (kind ? " " + kind : "");
 }
 
-// 把接口地址规整成 chat/completions 端点
-function normalizeEndpoint(url) {
-  let u = url.trim().replace(/\/+$/, "");
-  if (/\/chat\/completions$/.test(u)) return u;
-  if (/\/v\d+$/.test(u)) return u + "/chat/completions";
-  return u + "/v1/chat/completions";
-}
-
-function aiRequestUrl() {
+function localProxyUrl(path = "/api/ai/chat/completions") {
   if (["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname)) {
-    return "/api/ai/chat/completions";
+    return path;
   }
-  return "https://localhost:3000/api/ai/chat/completions";
+  return `https://localhost:3000${path}`;
 }
 
 function aiPayload(model, dataUrl) {
@@ -438,30 +536,38 @@ function aiPayload(model, dataUrl) {
   });
 }
 
-async function postAi(endpoint, key, body, useProxy) {
+async function getProxyToken(signal) {
+  if (!proxyTokenPromise) {
+    proxyTokenPromise = fetch(localProxyUrl("/api/ai/token"), { signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Local proxy token request failed (${response.status})`);
+        const data = await response.json();
+        if (!data?.token) throw new Error("Local proxy did not return a token");
+        return data.token;
+      })
+      .catch((error) => {
+        proxyTokenPromise = null;
+        throw error;
+      });
+  }
+  return proxyTokenPromise;
+}
+
+async function postAi(endpoint, key, body, useProxy, signal) {
   const headers = {
     "Content-Type": "application/json",
     Authorization: "Bearer " + key,
   };
-  if (useProxy) headers["X-GMath-AI-Endpoint"] = endpoint;
-  return fetch(useProxy ? aiRequestUrl() : endpoint, {
+  if (useProxy) {
+    headers["X-GMath-AI-Endpoint"] = endpoint;
+    headers["X-GMath-Proxy-Token"] = await getProxyToken(signal);
+  }
+  return fetch(useProxy ? localProxyUrl() : endpoint, {
     method: "POST",
     headers,
     body,
+    signal,
   });
-}
-
-// 清洗模型返回：去掉代码块围栏与 $ / \[ \] / \( \) 定界符
-function cleanLatex(raw) {
-  let s = (raw || "").trim();
-  s = s.replace(/^```(?:latex|tex|math)?\s*/i, "").replace(/\s*```$/, "").trim();
-  s = s
-    .replace(/^\$\$([\s\S]*?)\$\$$/, "$1")
-    .replace(/^\\\[([\s\S]*?)\\\]$/, "$1")
-    .replace(/^\\\(([\s\S]*?)\\\)$/, "$1")
-    .replace(/^\$([\s\S]*?)\$$/, "$1")
-    .trim();
-  return s;
 }
 
 // 读取图片文件 → 压缩到最长边 ≤1600 的 dataURL（减小体积/费用，PNG 保边缘清晰）
@@ -473,6 +579,10 @@ function fileToDataUrl(file, maxSide = 1600) {
       const img = new Image();
       img.onerror = () => reject(new Error(T("parseImgFail")));
       img.onload = () => {
+        if (img.width * img.height > AI_LIMITS.maxPixels) {
+          reject(new Error(T("imageTooLarge")));
+          return;
+        }
         const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
         if (scale === 1) return resolve(reader.result);
         const c = document.createElement("canvas");
@@ -494,26 +604,40 @@ async function recognizeImage(dataUrl) {
   if (!url || !key || !model) {
     setAiStatus(T("aiNeedCfg"), "err");
     $("aiSettings").hidden = false;
+    $("aiSettingsBtn").setAttribute("aria-expanded", "true");
     return;
   }
+  aiController?.abort();
+  const revision = ++aiRequestRevision;
+  const controller = new AbortController();
+  aiController = controller;
+  const timeout = setTimeout(() => controller.abort(), AI_LIMITS.requestTimeoutMs);
   setAiStatus(T("aiBusy"), "busy");
   try {
     const endpoint = normalizeEndpoint(url);
     const body = aiPayload(model, dataUrl);
     let resp;
-    try {
-      resp = await postAi(endpoint, key, body, false);
-    } catch (directErr) {
-      resp = await postAi(endpoint, key, body, true).catch(() => {
-        throw directErr;
-      });
+    if (new URL(endpoint).protocol === "https:") {
+      try {
+        resp = await postAi(endpoint, key, body, false, controller.signal);
+      } catch (directErr) {
+        if (controller.signal.aborted) throw directErr;
+        resp = await postAi(endpoint, key, body, true, controller.signal).catch(() => {
+          throw directErr;
+        });
+      }
+    } else {
+      // HTTP Key 绝不由任务窗直发；仅交给显式允许不安全目标的本地代理决定。
+      resp = await postAi(endpoint, key, body, true, controller.signal);
     }
+    if (revision !== aiRequestRevision) return;
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
       setAiStatus(`${T("aiHttp")}${resp.status}: ${body.slice(0, 200)}`, "err");
       return;
     }
     const data = await resp.json();
+    if (revision !== aiRequestRevision) return;
     const content = data?.choices?.[0]?.message?.content;
     const text = typeof content === "string"
       ? content
@@ -529,12 +653,24 @@ async function recognizeImage(dataUrl) {
     mathfield.focus();
     setAiStatus(T("aiDone"), "ok");
   } catch (e) {
+    if (revision !== aiRequestRevision) return;
+    if (controller.signal.aborted) {
+      setAiStatus(T("aiTimeout"), "err");
+      return;
+    }
     setAiStatus(`${T("aiReqFail")}${e.message || e}${T("aiReqFailHint")}`, "err");
+  } finally {
+    clearTimeout(timeout);
+    if (aiController === controller) aiController = null;
   }
 }
 
 async function handleImageFile(file) {
   if (!file || !file.type || !file.type.startsWith("image/")) return;
+  if (file.size > AI_LIMITS.maxFileBytes) {
+    setAiStatus(T("imageTooLarge"), "err");
+    return;
+  }
   try {
     const dataUrl = await fileToDataUrl(file);
     const thumb = $("aiThumb");
@@ -551,24 +687,45 @@ function wireAI() {
   const urlEl = $("aiUrl");
   const keyEl = $("aiKey");
   const modelEl = $("aiModel");
+  const rememberEl = $("aiRememberKey");
   const drop = $("aiDrop");
   const fileEl = $("aiFile");
 
   // 载入已保存的配置
   urlEl.value = lsGet(AI_KEYS.url);
-  keyEl.value = lsGet(AI_KEYS.key);
+  let rememberedKey = lsGet(AI_KEYS.key);
+  const explicitlyRemembered = lsGet(AI_KEYS.remember) === "yes";
+  // 从旧版本迁移：没有明确同意长期保存的历史 Key 自动降级到会话存储。
+  if (rememberedKey && !explicitlyRemembered) {
+    ssSet(AI_KEYS.key, rememberedKey);
+    lsRemove(AI_KEYS.key);
+    rememberedKey = "";
+  }
+  keyEl.value = rememberedKey || ssGet(AI_KEYS.key);
+  rememberEl.checked = !!rememberedKey && explicitlyRemembered;
   modelEl.value = lsGet(AI_KEYS.model);
 
   $("aiSettingsBtn").addEventListener("click", () => {
     const s = $("aiSettings");
     s.hidden = !s.hidden;
+    $("aiSettingsBtn").setAttribute("aria-expanded", s.hidden ? "false" : "true");
   });
   $("aiSaveBtn").addEventListener("click", () => {
     lsSet(AI_KEYS.url, urlEl.value.trim());
-    lsSet(AI_KEYS.key, keyEl.value.trim());
     lsSet(AI_KEYS.model, modelEl.value.trim());
+    const key = keyEl.value.trim();
+    if (rememberEl.checked) {
+      lsSet(AI_KEYS.key, key);
+      lsSet(AI_KEYS.remember, "yes");
+      ssRemove(AI_KEYS.key);
+    } else {
+      lsRemove(AI_KEYS.key);
+      lsRemove(AI_KEYS.remember);
+      ssSet(AI_KEYS.key, key);
+    }
     setAiStatus(T("aiSaved"), "ok");
     $("aiSettings").hidden = true;
+    $("aiSettingsBtn").setAttribute("aria-expanded", "false");
   });
 
   // 点击 / 拖拽 / 选择文件
@@ -648,8 +805,11 @@ function wireUp(inWord) {
     mathfield.focus();
   });
 
-  insertBtn.addEventListener("click", insertNew);
-  insertBtn.disabled = false;
+  insertBtn.addEventListener("click", () => {
+    clearTimeout(syncTimer);
+    syncQueue.enqueue(() => insertNew()).catch((error) => conversionError(error, T("insertFail")));
+  });
+  insertBtn.disabled = !inWord;
 
   $("langBtn").addEventListener("click", () => setLang(lang === "zh" ? "en" : "zh"));
 

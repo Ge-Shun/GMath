@@ -1,6 +1,6 @@
 {
   "name": "gmath-word-addin",
-  "version": "0.1.0",
+  "version": "1.0.14",
   "private": true,
   "type": "module",
   "description": "Word 加载项：可视化编辑并插入原生可编辑公式，替代 MathType。",
@@ -10,16 +10,22 @@
     "sideload:mac": "node scripts/sideload-mac.mjs",
     "sideload:mac:local": "GMATH_TASKPANE=local node scripts/sideload-mac.mjs",
     "validate": "office-addin-manifest validate manifest.xml",
-    "test": "node test/render-test.mjs"
+    "check": "node scripts/check-release.mjs && node --check src/taskpane.js && node --check scripts/serve.mjs",
+    "test:unit": "node --test test/*.test.mjs",
+    "test:conversion": "node test/render-test.mjs",
+    "test": "npm run test:unit && npm run test:conversion",
+    "audit:prod": "npm audit --omit=dev"
   },
   "devDependencies": {
     "@xmldom/xmldom": "^0.9.10",
-    "http-server": "^14.1.1",
-    "office-addin-dev-certs": "^1.13.4",
-    "office-addin-manifest": "^1.13.4"
+    "office-addin-dev-certs": "^2.0.10",
+    "office-addin-manifest": "^2.1.6"
   },
   "dependencies": {
     "mathlive": "0.110.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
 }
