@@ -24,6 +24,7 @@
   "dependencies": {
     "mathlive": "0.110.0"
   },
+  "license": "MIT",
   "engines": {
     "node": ">=20"
   }
